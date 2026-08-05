@@ -6,7 +6,6 @@ const yts = require('yt-search');
 
 app.use(express.static('public'));
 
-// Store queue & history per room
 const rooms = {};
 
 function getRoom(roomCode) {
@@ -26,9 +25,7 @@ io.on('connection', (socket) => {
     if (!roomCode) return;
     currentRoom = roomCode.trim().toUpperCase();
     socket.join(currentRoom);
-    
     const room = getRoom(currentRoom);
-    // Send current queue immediately upon joining
     io.to(currentRoom).emit('updateQueue', room.queue);
   });
 
@@ -42,7 +39,6 @@ io.on('connection', (socket) => {
       }));
       socket.emit('searchResults', videos);
     } catch (err) {
-      console.error('Search error:', err);
       socket.emit('searchResults', []);
     }
   });
@@ -50,17 +46,14 @@ io.on('connection', (socket) => {
   socket.on('addSong', async (data) => {
     if (!currentRoom) return;
     const room = getRoom(currentRoom);
-    
     let songId = data.input;
     let songTitle = "Unknown Song";
 
     try {
       if (typeof data.input === 'string' && data.input.length === 11) {
-        // Direct Video ID
         const video = await yts({ videoId: data.input });
         if (video) songTitle = video.title;
       } else {
-        // Text Query search
         const r = await yts(data.input);
         if (r && r.videos && r.videos.length > 0) {
           songId = r.videos[0].videoId;
@@ -68,20 +61,18 @@ io.on('connection', (socket) => {
         }
       }
 
-      room.queue.push({ 
-        id: songId, 
-        title: songTitle, 
-        user: data.userName || 'Guest' 
+      room.queue.push({
+        id: songId,
+        title: songTitle,
+        user: data.userName || 'Guest'
       });
 
-      // Broadcast updated queue to ALL devices in this room
       io.to(currentRoom).emit('updateQueue', room.queue);
     } catch (err) {
-      console.error('Add song error:', err);
+      console.error(err);
     }
   });
 
-  /* Playback Commands */
   socket.on('playSong', () => {
     if (currentRoom) io.to(currentRoom).emit('playerPlay');
   });

@@ -11,37 +11,10 @@
     h2 { margin: 0 0 4px 0; text-align: center; font-size: 1.2rem; }
     .room-badge { text-align: center; font-size: 0.75rem; color: #ec4899; font-weight: bold; margin-bottom: 12px; }
     
-    .playback-controls {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-    .ctrl-btn {
-      background-color: #ffcc00;
-      color: #080d19;
-      border: none;
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      box-shadow: 0 0 10px rgba(255, 204, 0, 0.35);
-      transition: transform 0.1s ease, background-color 0.2s ease;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .ctrl-btn:active {
-      transform: scale(0.92);
-      background-color: #e6b800;
-    }
-    .ctrl-btn svg {
-      width: 22px;
-      height: 22px;
-      fill: #080d19;
-    }
+    .playback-controls { display: flex; justify-content: center; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .ctrl-btn { background-color: #ffcc00; color: #080d19; border: none; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 0 10px rgba(255, 204, 0, 0.35); transition: transform 0.1s ease, background-color 0.2s ease; -webkit-tap-highlight-color: transparent; }
+    .ctrl-btn:active { transform: scale(0.92); background-color: #e6b800; }
+    .ctrl-btn svg { width: 22px; height: 22px; fill: #080d19; }
 
     .user-box { background: #0f1a30; padding: 10px; border-radius: 8px; margin-bottom: 12px; font-size: 0.85rem; display: flex; align-items: center; justify-content: space-between; border: 1px solid #1e293b; }
     input[type="text"] { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #1e293b; background: #0f1a30; color: white; font-size: 15px; margin-bottom: 8px; }
@@ -135,13 +108,8 @@
   <script>
     const socket = io();
 
-    // Parse Room Code safely from URL query params
     const urlParams = new URLSearchParams(window.location.search);
-    let roomCode = urlParams.get('room');
-
-    if (!roomCode) {
-      roomCode = prompt("Enter Room Code shown on TV monitor (e.g., ROOM-1234):");
-    }
+    let roomCode = urlParams.get('room') || prompt("Enter Room Code:");
 
     if (roomCode) {
       roomCode = roomCode.trim().toUpperCase();

@@ -3,202 +3,220 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MarsKTV - Main Screen</title>
+  <title>SingRoom KTV</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background-color: #0b0e14;
-      color: #ffffff;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      overflow: hidden;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, sans-serif; background-color: #080d19; color: #ffffff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+    
+    .navbar { 
+      height: 50px; 
+      padding: 0 20px; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      background-color: #0b1329; 
+      border-bottom: 1px solid #16213e; 
     }
-
-    /* Top Right Header Bar */
-    .top-right-header {
-      position: absolute;
-      top: 15px;
-      right: 25px;
+    .brand { font-weight: 800; font-size: 1.1rem; color: #fff; }
+    .brand span { color: #ec4899; font-size: 0.7rem; display: block; letter-spacing: 1px; font-weight: 600; }
+    
+    /* Yellow Header Display: Date, Time, Queue Box */
+    .header-info-box {
       display: flex;
       align-items: center;
       gap: 12px;
-      z-index: 1000;
     }
-
     .date-time-text {
       color: #ffcc00;
-      font-size: 1.1rem;
       font-weight: 600;
-      letter-spacing: 0.5px;
-      text-shadow: 0 0 8px rgba(255, 204, 0, 0.3);
-    }
-
-    .queue-badge {
-      background-color: #ffcc00;
-      color: #0b0e14;
-      font-weight: bold;
-      font-size: 1.1rem;
-      padding: 4px 12px;
-      border-radius: 6px;
-      box-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 20px;
-    }
-
-    /* Layout Containers */
-    .main-container {
-      display: flex;
-      height: 100vh;
-      padding: 20px;
-      box-sizing: border-box;
-      gap: 20px;
-    }
-
-    .player-section {
-      flex: 3;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .video-container {
-      position: relative;
-      width: 100%;
-      height: 0;
-      padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
-      background: #000;
-      border-radius: 12px;
-      overflow: hidden;
-    }
-
-    .video-container iframe, 
-    .video-container div#player {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-    }
-
-    .sidebar {
-      flex: 1;
-      background: #131822;
-      border-radius: 12px;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-
-    .queue-title {
-      color: #ff4081;
-      font-size: 1.2rem;
-      font-weight: bold;
-      margin-bottom: 15px;
-    }
-
-    .queue-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      overflow-y: auto;
-      max-height: 60vh;
-    }
-
-    .queue-item {
-      background: #1c2333;
-      padding: 10px 14px;
-      border-radius: 8px;
-      margin-bottom: 10px;
       font-size: 0.95rem;
+      letter-spacing: 0.5px;
     }
-
-    .qr-container {
-      background: #1c2333;
-      padding: 15px;
-      border-radius: 10px;
-      text-align: center;
-    }
-
-    .qr-container img {
-      width: 120px;
-      height: 120px;
+    .queue-box {
+      background-color: #ffcc00;
+      color: #080d19;
+      font-weight: 800;
+      font-size: 0.95rem;
+      padding: 2px 10px;
       border-radius: 6px;
+      min-width: 20px;
+      text-align: center;
+      box-shadow: 0 0 8px rgba(255, 204, 0, 0.4);
     }
+
+    .main-container { display: grid; grid-template-columns: 1fr 320px; grid-template-rows: 1fr auto; gap: 12px; padding: 12px; flex: 1; height: calc(100vh - 50px); }
+    .player-section { display: flex; flex-direction: column; gap: 10px; height: 100%; }
+    .video-wrapper { position: relative; flex: 1; background: #000; border-radius: 12px; overflow: hidden; border: 1px solid #1e293b; }
+    #player { width: 100%; height: 100%; }
+    .now-playing-bar { background: #0f1a30; border: 1px solid #1e293b; border-radius: 10px; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; }
+    .np-tag { color: #ec4899; font-weight: 800; font-size: 0.8rem; margin-right: 8px; }
+    .sidebar-section { display: flex; flex-direction: column; gap: 10px; height: 100%; }
+    .queue-card { flex: 1; background: #0f1a30; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; overflow-y: auto; }
+    .card-title { color: #ec4899; font-size: 0.75rem; font-weight: 800; margin-bottom: 12px; }
+    .empty-queue { color: #64748b; font-size: 0.85rem; }
+    .queue-item { background: #16233d; padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.85rem; color: #cbd5e1; }
+    .singers-card { background: #0f1a30; border: 1px solid #1e293b; border-radius: 12px; padding: 12px; }
+    .singer-item { background: #16233d; padding: 8px 12px; border-radius: 20px; font-size: 0.8rem; color: #94a3b8; }
+    .qr-card { background: #0f1a30; border: 1px solid #1e293b; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 12px; }
+    #qrcode { background: #fff; padding: 6px; border-radius: 8px; }
+    .qr-info { display: flex; flex-direction: column; gap: 4px; }
+    .room-code { font-size: 1.1rem; font-weight: 800; color: #fff; }
+    .toast-overlay { position: absolute; top: 20px; right: 20px; background: rgba(236, 72, 153, 0.9); color: white; padding: 12px 24px; border-radius: 30px; font-weight: bold; font-size: 1.2rem; display: none; z-index: 100; }
   </style>
 </head>
 <body>
 
-  <!-- Top Right Live Bar -->
-  <div class="top-right-header">
-    <div class="date-time-text" id="live-datetime">Wed, Aug 5, 2026 | 11:29 PM</div>
-    <div class="queue-badge" id="queue-count">0</div>
+  <div id="reactionToast" class="toast-overlay"></div>
+
+  <div class="navbar">
+    <div class="brand">SingRoom KTV <span>KARAOKE TOGETHER</span></div>
+    
+    <!-- Live Yellow Header Information -->
+    <div class="header-info-box">
+      <div id="liveDateTime" class="date-time-text">--</div>
+      <div id="queueBadge" class="queue-box">0</div>
+    </div>
   </div>
 
-  <!-- App Layout -->
   <div class="main-container">
     <div class="player-section">
-      <h1 style="margin: 0 0 15px 0; color: #ff4081; font-size: 1.5rem;">MarsKTV</h1>
-      <div class="video-container">
+      <div class="video-wrapper">
         <div id="player"></div>
+      </div>
+      <div class="now-playing-bar">
+        <div>
+          <span class="np-tag">♪ NOW PLAYING</span>
+          <span id="npTitle" class="np-title">No song playing</span>
+        </div>
+        <div style="color:#64748b; font-size:0.8rem;">Added by <span id="npUser">Guest</span></div>
       </div>
     </div>
 
-    <div class="sidebar">
-      <div>
-        <div class="queue-title">UP NEXT</div>
-        <ul class="queue-list" id="queue-list-display">
-          <li class="queue-item" style="color: #888;">No songs in queue</li>
-        </ul>
+    <div class="sidebar-section">
+      <div class="queue-card">
+        <div class="card-title">▷ UP NEXT</div>
+        <div id="queueList" class="empty-queue">No songs queued yet</div>
       </div>
 
-      <div class="qr-container">
+      <div class="singers-card">
+        <div id="singerActivity" class="singer-item">♪ Now singing: Guest</div>
+      </div>
+
+      <div class="qr-card">
         <div id="qrcode"></div>
-        <p style="margin: 8px 0 0 0; font-size: 0.85rem; color: #ffcc00; font-weight: bold;">Scan to Remote</p>
+        <div class="qr-info">
+          <div style="font-size:0.8rem; color:#94a3b8;">Scan to Join</div>
+          <div style="font-size:0.65rem; color:#ec4899; font-weight:800;">ROOM CODE</div>
+          <div id="roomDisplay" class="room-code">------</div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Socket.io Script -->
-  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://www.youtube.com/iframe_api"></script>
   <script>
     const socket = io();
+    let player;
+    let isPlayerReady = false;
 
     // Live Date & Time Counter
-    function updateDateTime() {
+    function updateClock() {
       const now = new Date();
       const optionsDate = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
-      const optionsTime = { hour: 'numeric', minute: '2-digit', hour12: true };
+      const optionsTime = { hour: '2-digit', minute: '2-digit', hour12: true };
       
       const dateStr = now.toLocaleDateString('en-US', optionsDate);
       const timeStr = now.toLocaleTimeString('en-US', optionsTime);
       
-      document.getElementById('live-datetime').innerText = `${dateStr} | ${timeStr}`;
+      document.getElementById('liveDateTime').innerText = `${dateStr}  |  ${timeStr}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Generate dynamic 6-character room code
+    const roomCode = 'ROOM-' + Math.floor(1000 + Math.random() * 9000);
+    document.getElementById("roomDisplay").textContent = roomCode;
+
+    // Join room on Socket.IO
+    socket.emit('joinRoom', roomCode);
+
+    // Dynamic mobile URL with room code parameter
+    const mobileUrl = `${window.location.protocol}//${window.location.host}/remote.html?room=${roomCode}`;
+    new QRCode(document.getElementById("qrcode"), { text: mobileUrl, width: 70, height: 70 });
+
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        playerVars: { 'autoplay': 1, 'controls': 1 },
+        events: {
+          'onReady': () => { isPlayerReady = true; },
+          'onStateChange': (e) => {
+            if (e.data === YT.PlayerState.ENDED) socket.emit('nextSong');
+          }
+        }
+      });
     }
 
-    setInterval(updateDateTime, 1000);
-    updateDateTime();
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    // Socket Queue Listener
-    socket.on('queueUpdate', (queue) => {
-      const count = queue ? queue.length : 0;
-      document.getElementById('queue-count').innerText = count;
+    socket.on('triggerSound', (sound) => {
+      const toast = document.getElementById('reactionToast');
+      toast.textContent = sound === 'applause' ? "👏 APPLAUSE!" : sound === 'airhorn' ? "📢 AIRHORN!" : "🎉 CHEER!";
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 2000);
+    });
 
-      const listContainer = document.getElementById('queue-list-display');
-      listContainer.innerHTML = '';
+    socket.on('updateVolume', (vol) => {
+      if (player && player.setVolume) player.setVolume(vol);
+    });
 
-      if (!queue || queue.length === 0) {
-        listContainer.innerHTML = '<li class="queue-item" style="color: #888;">No songs in queue</li>';
+    socket.on('updateQueue', (queue) => {
+      const queueList = document.getElementById('queueList');
+      const npTitle = document.getElementById('npTitle');
+      const npUser = document.getElementById('npUser');
+      const singerActivity = document.getElementById('singerActivity');
+      const queueBadge = document.getElementById('queueBadge');
+      
+      // Update queue count badge in header
+      const totalCount = queue ? queue.length : 0;
+      queueBadge.innerText = totalCount;
+
+      queueList.innerHTML = '';
+
+      if (totalCount === 0) {
+        npTitle.textContent = "No song playing";
+        npUser.textContent = "Guest";
+        singerActivity.textContent = "♪ Now singing: Guest";
+        queueList.className = "empty-queue";
+        queueList.textContent = "No songs queued yet";
         return;
       }
 
-      queue.forEach((song, index) => {
-        const item = document.createElement('li');
-        item.className = 'queue-item';
-        item.innerText = `${index + 1}. ${song.title || song}`;
-        listContainer.appendChild(item);
-      });
+      npTitle.textContent = queue[0].title;
+      npUser.textContent = queue[0].user || 'Guest';
+      singerActivity.textContent = `♪ Now singing: ${queue[0].user || 'Guest'}`;
+
+      if (isPlayerReady && queue[0]) {
+        const currentData = player.getVideoData();
+        if (!currentData || currentData.video_id !== queue[0].id) {
+          player.loadVideoById(queue[0].id);
+        }
+      }
+
+      const upcoming = queue.slice(1);
+      if (upcoming.length === 0) {
+        queueList.className = "empty-queue";
+        queueList.textContent = "No songs queued yet";
+      } else {
+        queueList.className = "";
+        upcoming.forEach((song) => {
+          const item = document.createElement('div');
+          item.className = 'queue-item';
+          item.textContent = `${song.title} (${song.user})`;
+          queueList.appendChild(item);
+        });
+      }
     });
   </script>
 </body>

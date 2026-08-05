@@ -44,6 +44,7 @@
   <h2>🎤 SingRoom Remote</h2>
   <div id="roomTag" class="room-badge">Connected to: Unknown Room</div>
 
+  <!-- Playback Controls Bar -->
   <div class="playback-controls">
     <button class="ctrl-btn" onclick="prevSong()" aria-label="Previous">
       <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
@@ -168,7 +169,7 @@
           <button style="padding:4px 8px; font-size:0.75rem; background:#22c55e; color:white;">+ Add</button>
         `;
         div.onclick = () => {
-          socket.emit('addSong', { input: item.id, userName: userName });
+          socket.emit('addSong', { input: item.id, title: item.title, userName: userName });
           switchTab('queue');
         };
         list.appendChild(div);
@@ -216,7 +217,8 @@
           <div class="title">${item.title}</div>
         `;
         div.onclick = () => {
-          socket.emit('addSong', { input: item.id, userName: userName });
+          // Instant queue submission passing title + id directly
+          socket.emit('addSong', { input: item.id, title: item.title, userName: userName });
           saveToHistory(item);
           resultsDiv.innerHTML = '<div style="font-size:0.8rem; color:#22c55e;">✓ Added to queue & history!</div>';
           document.getElementById('searchInput').value = '';

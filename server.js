@@ -2,7 +2,6 @@ const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http);
-const yts = require('yt-search');
 
 app.use(express.static('public'));
 
@@ -18,6 +17,34 @@ function getRoom(roomCode) {
   return rooms[roomCode];
 }
 
+// Fast search helper using public Invidious instances
+async function searchYouTube(query) {
+  try {
+    const res = await fetch(`https://inv.api.store/api/v1/search?q=${encodeURIComponent(query)}&type=video`);
+    if (!res.ok) throw new Error('Search API request failed');
+    const data = await res.json();
+    return data.slice(0, 5).map(v => ({
+      id: v.videoId,
+      title: v.title,
+      thumbnail: v.videoThumbnails?.[0]?.url || `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`
+    }));
+  } catch (err) {
+    // Fallback instance if primary is busy
+    try {
+      const fallbackRes = await fetch(`https://vid.puffyan.us/api/v1/search?q=${encodeURIComponent(query)}&type=video`);
+      const fallbackData = await fallbackRes.json();
+      return fallbackData.slice(0, 5).map(v => ({
+        id: v.videoId,
+        title: v.title,
+        thumbnail: `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`
+      }));
+    } catch (fallbackErr) {
+      console.error('All search mirrors failed:', fallbackErr);
+      return [];
+    }
+  }
+}
+
 io.on('connection', (socket) => {
   let currentRoom = null;
 
@@ -30,47 +57,35 @@ io.on('connection', (socket) => {
   });
 
   socket.on('searchSong', async (query) => {
-    try {
-      const r = await yts(query);
-      const videos = (r.videos || []).slice(0, 5).map(v => ({
-        id: v.videoId,
-        title: v.title,
-        thumbnail: v.thumbnail
-      }));
-      socket.emit('searchResults', videos);
-    } catch (err) {
-      socket.emit('searchResults', []);
-    }
+    if (!query || !query.trim()) return socket.emit('searchResults', []);
+    const results = await searchYouTube(query);
+    socket.emit('searchResults', results);
   });
 
   socket.on('addSong', async (data) => {
     if (!currentRoom) return;
     const room = getRoom(currentRoom);
+    
     let songId = data.input;
-    let songTitle = "Unknown Song";
+    let songTitle = data.title || "Unknown Song";
 
-    try {
-      if (typeof data.input === 'string' && data.input.length === 11) {
-        const video = await yts({ videoId: data.input });
-        if (video) songTitle = video.title;
-      } else {
-        const r = await yts(data.input);
-        if (r && r.videos && r.videos.length > 0) {
-          songId = r.videos[0].videoId;
-          songTitle = r.videos[0].title;
-        }
+    // If only query text was provided without title
+    if (!data.title && typeof data.input === 'string' && data.input.length !== 11) {
+      const results = await searchYouTube(data.input);
+      if (results.length > 0) {
+        songId = results[0].id;
+        songTitle = results[0].title;
       }
-
-      room.queue.push({
-        id: songId,
-        title: songTitle,
-        user: data.userName || 'Guest'
-      });
-
-      io.to(currentRoom).emit('updateQueue', room.queue);
-    } catch (err) {
-      console.error(err);
     }
+
+    room.queue.push({
+      id: songId,
+      title: songTitle,
+      user: data.userName || 'Guest'
+    });
+
+    // Instantly sync room queue across monitor and remotes
+    io.to(currentRoom).emit('updateQueue', room.queue);
   });
 
   socket.on('playSong', () => {

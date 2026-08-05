@@ -11,7 +11,6 @@
     h2 { margin: 0 0 4px 0; text-align: center; font-size: 1.2rem; }
     .room-badge { text-align: center; font-size: 0.75rem; color: #ec4899; font-weight: bold; margin-bottom: 12px; }
     
-    /* 4 Yellow Playback Control Buttons: Prev, Play, Pause, Next */
     .playback-controls {
       display: flex;
       justify-content: center;
@@ -72,7 +71,6 @@
   <h2>🎤 SingRoom Remote</h2>
   <div id="roomTag" class="room-badge">Connected to: Unknown Room</div>
 
-  <!-- Previous, Play, Pause, Next Buttons -->
   <div class="playback-controls">
     <button class="ctrl-btn" onclick="prevSong()" aria-label="Previous">
       <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
@@ -137,11 +135,19 @@
   <script>
     const socket = io();
 
+    // Parse Room Code safely from URL query params
     const urlParams = new URLSearchParams(window.location.search);
-    const roomCode = urlParams.get('room') || prompt("Enter Room Code:");
-    
-    document.getElementById('roomTag').textContent = `Connected to: ${roomCode}`;
-    socket.emit('joinRoom', roomCode);
+    let roomCode = urlParams.get('room');
+
+    if (!roomCode) {
+      roomCode = prompt("Enter Room Code shown on TV monitor (e.g., ROOM-1234):");
+    }
+
+    if (roomCode) {
+      roomCode = roomCode.trim().toUpperCase();
+      document.getElementById('roomTag').textContent = `Connected to: ${roomCode}`;
+      socket.emit('joinRoom', roomCode);
+    }
 
     let userName = localStorage.getItem('ktv_user') || 'Singer ' + Math.floor(Math.random() * 900 + 100);
     document.getElementById('nameDisplay').textContent = userName;
@@ -221,7 +227,6 @@
       socket.emit('setVolume', val);
     }
 
-    /* Socket Functions for Prev, Play, Pause, Next */
     function prevSong() { socket.emit('prevSong'); }
     function playSong() { socket.emit('playSong'); }
     function pauseSong() { socket.emit('pauseSong'); }
@@ -230,7 +235,7 @@
     socket.on('searchResults', (results) => {
       const resultsDiv = document.getElementById('results');
       resultsDiv.innerHTML = '';
-      if (results.length === 0) {
+      if (!results || results.length === 0) {
         resultsDiv.innerHTML = '<div style="font-size:0.8rem; color:#ef4444;">No songs found.</div>';
         return;
       }
@@ -260,13 +265,15 @@
       const nowPlayingDiv = document.getElementById('nowPlaying');
       const queueDiv = document.getElementById('remoteQueue');
 
-      if (queue.length > 0) {
+      if (queue && queue.length > 0) {
         nowPlayingDiv.textContent = `${queue[0].title} (${queue[0].user})`;
       } else {
         nowPlayingDiv.textContent = "Nothing playing";
       }
 
       queueDiv.innerHTML = '';
+      if (!queue) return;
+
       queue.slice(1).forEach((song, i) => {
         const actualIndex = i + 1;
         const item = document.createElement('div');

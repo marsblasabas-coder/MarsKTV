@@ -108,8 +108,10 @@
     setInterval(updateClock, 1000);
     updateClock();
 
+    // Standardize Room Code to uppercase
     const roomCode = 'ROOM-' + Math.floor(1000 + Math.random() * 9000);
     document.getElementById("roomDisplay").textContent = roomCode;
+    
     socket.emit('joinRoom', roomCode);
 
     const mobileUrl = `${window.location.protocol}//${window.location.host}/remote.html?room=${roomCode}`;
@@ -127,7 +129,6 @@
       });
     }
 
-    /* Socket Play/Pause Listener Handlers */
     socket.on('playerPlay', () => {
       if (isPlayerReady && player && player.playVideo) player.playVideo();
     });
@@ -173,7 +174,7 @@
       singerActivity.textContent = `♪ Now singing: ${queue[0].user || 'Guest'}`;
 
       if (isPlayerReady && queue[0]) {
-        const currentData = player.getVideoData();
+        const currentData = player.getVideoData ? player.getVideoData() : null;
         if (!currentData || currentData.video_id !== queue[0].id) {
           player.loadVideoById(queue[0].id);
         }

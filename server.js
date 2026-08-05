@@ -6,7 +6,7 @@ const yts = require('yt-search');
 
 app.use(express.static('public'));
 
-// Store state per room
+// Store queue & history per room
 const rooms = {};
 
 function getRoom(roomCode) {
@@ -23,22 +23,26 @@ io.on('connection', (socket) => {
   let currentRoom = null;
 
   socket.on('joinRoom', (roomCode) => {
-    currentRoom = roomCode;
-    socket.join(roomCode);
+    if (!roomCode) return;
+    currentRoom = roomCode.trim().toUpperCase();
+    socket.join(currentRoom);
+    
     const room = getRoom(currentRoom);
+    // Send current queue immediately upon joining
     io.to(currentRoom).emit('updateQueue', room.queue);
   });
 
   socket.on('searchSong', async (query) => {
     try {
       const r = await yts(query);
-      const videos = r.videos.slice(0, 5).map(v => ({
+      const videos = (r.videos || []).slice(0, 5).map(v => ({
         id: v.videoId,
         title: v.title,
         thumbnail: v.thumbnail
       }));
       socket.emit('searchResults', videos);
     } catch (err) {
+      console.error('Search error:', err);
       socket.emit('searchResults', []);
     }
   });
@@ -50,22 +54,34 @@ io.on('connection', (socket) => {
     let songId = data.input;
     let songTitle = "Unknown Song";
 
-    if (!data.input.includes('http') && data.input.length !== 11) {
-      const r = await yts(data.input);
-      if (r.videos.length > 0) {
-        songId = r.videos[0].videoId;
-        songTitle = r.videos[0].title;
+    try {
+      if (typeof data.input === 'string' && data.input.length === 11) {
+        // Direct Video ID
+        const video = await yts({ videoId: data.input });
+        if (video) songTitle = video.title;
+      } else {
+        // Text Query search
+        const r = await yts(data.input);
+        if (r && r.videos && r.videos.length > 0) {
+          songId = r.videos[0].videoId;
+          songTitle = r.videos[0].title;
+        }
       }
-    } else {
-      const r = await yts({ videoId: data.input });
-      if (r) songTitle = r.title;
-    }
 
-    room.queue.push({ id: songId, title: songTitle, user: data.userName });
-    io.to(currentRoom).emit('updateQueue', room.queue);
+      room.queue.push({ 
+        id: songId, 
+        title: songTitle, 
+        user: data.userName || 'Guest' 
+      });
+
+      // Broadcast updated queue to ALL devices in this room
+      io.to(currentRoom).emit('updateQueue', room.queue);
+    } catch (err) {
+      console.error('Add song error:', err);
+    }
   });
 
-  /* Playback Control Handlers */
+  /* Playback Commands */
   socket.on('playSong', () => {
     if (currentRoom) io.to(currentRoom).emit('playerPlay');
   });
@@ -78,8 +94,8 @@ io.on('connection', (socket) => {
     if (!currentRoom) return;
     const room = getRoom(currentRoom);
     if (room.queue.length > 0) {
-      const finishedSong = room.queue.shift();
-      room.playedHistory.push(finishedSong);
+      const finished = room.queue.shift();
+      room.playedHistory.push(finished);
       io.to(currentRoom).emit('updateQueue', room.queue);
     }
   });
@@ -88,8 +104,8 @@ io.on('connection', (socket) => {
     if (!currentRoom) return;
     const room = getRoom(currentRoom);
     if (room.playedHistory.length > 0) {
-      const previousSong = room.playedHistory.pop();
-      room.queue.unshift(previousSong); // Put previous song back at the top of the queue
+      const prev = room.playedHistory.pop();
+      room.queue.unshift(prev);
       io.to(currentRoom).emit('updateQueue', room.queue);
     }
   });

@@ -10,12 +10,6 @@
     body { font-family: -apple-system, sans-serif; background: #080d19; color: white; padding: 16px; margin: 0; }
     h2 { margin: 0 0 4px 0; text-align: center; font-size: 1.2rem; }
     .room-badge { text-align: center; font-size: 0.75rem; color: #ec4899; font-weight: bold; margin-bottom: 12px; }
-    
-    .playback-controls { display: flex; justify-content: center; align-items: center; gap: 12px; margin-bottom: 16px; }
-    .ctrl-btn { background-color: #ffcc00; color: #080d19; border: none; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 0 10px rgba(255, 204, 0, 0.35); transition: transform 0.1s ease; -webkit-tap-highlight-color: transparent; }
-    .ctrl-btn:active { transform: scale(0.92); background-color: #e6b800; }
-    .ctrl-btn svg { width: 22px; height: 22px; fill: #080d19; }
-
     .user-box { background: #0f1a30; padding: 10px; border-radius: 8px; margin-bottom: 12px; font-size: 0.85rem; display: flex; align-items: center; justify-content: space-between; border: 1px solid #1e293b; }
     input[type="text"] { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #1e293b; background: #0f1a30; color: white; font-size: 15px; margin-bottom: 8px; }
     .search-box { display: flex; gap: 8px; }
@@ -44,28 +38,13 @@
   <h2>🎤 SingRoom Remote</h2>
   <div id="roomTag" class="room-badge">Connected to: Unknown Room</div>
 
-  <div class="playback-controls">
-    <button class="ctrl-btn" onclick="prevSong()" aria-label="Previous">
-      <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-    </button>
-    <button class="ctrl-btn" onclick="playSong()" aria-label="Play">
-      <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-    </button>
-    <button class="ctrl-btn" onclick="pauseSong()" aria-label="Pause">
-      <svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-    </button>
-    <button class="ctrl-btn" onclick="skipSong()" aria-label="Next">
-      <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-    </button>
-  </div>
-
   <div class="user-box">
     <span>Singer Name: <strong id="nameDisplay">Guest</strong></span>
     <button onclick="changeName()" style="padding:4px 8px; font-size:0.75rem; background:#334155; color:white;">Change</button>
   </div>
 
   <div class="search-box">
-    <input type="text" id="searchInput" placeholder="Search song or artist...">
+    <input type="text" id="searchInput" placeholder="Search song or artist..." onkeypress="if(event.key==='Enter') searchSong()">
     <button class="btn-search" onclick="searchSong()">Search</button>
   </div>
 
@@ -109,13 +88,10 @@
     const socket = io();
 
     const urlParams = new URLSearchParams(window.location.search);
-    let roomCode = urlParams.get('room') || prompt("Enter Room Code:");
-
-    if (roomCode) {
-      roomCode = roomCode.trim().toUpperCase();
-      document.getElementById('roomTag').textContent = `Connected to: ${roomCode}`;
-      socket.emit('joinRoom', roomCode);
-    }
+    const roomCode = urlParams.get('room') || prompt("Enter Room Code:");
+    
+    document.getElementById('roomTag').textContent = `Connected to: ${roomCode}`;
+    socket.emit('joinRoom', roomCode);
 
     let userName = localStorage.getItem('ktv_user') || 'Singer ' + Math.floor(Math.random() * 900 + 100);
     document.getElementById('nameDisplay').textContent = userName;
@@ -168,7 +144,7 @@
           <button style="padding:4px 8px; font-size:0.75rem; background:#22c55e; color:white;">+ Add</button>
         `;
         div.onclick = () => {
-          socket.emit('addSong', { id: item.id, title: item.title, userName: userName });
+          socket.emit('addSong', { input: item.id, userName: userName });
           switchTab('queue');
         };
         list.appendChild(div);
@@ -181,57 +157,25 @@
       renderHistory();
     }
 
-    // Direct Browser Search via Piped/Invidious (No Host IP Blocking)
-    async function searchSong() {
-      const query = document.getElementById('searchInput').value.trim();
-      const resultsDiv = document.getElementById('results');
-      if (!query) return;
-
-      resultsDiv.innerHTML = '<div style="font-size:0.8rem; color:#94a3b8;">Searching YouTube...</div>';
-
-      const endpoints = [
-        `https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(query)}&filter=videos`,
-        `https://inv.tux.im/api/v1/search?q=${encodeURIComponent(query)}&type=video`,
-        `https://invidious.nerdvpn.de/api/v1/search?q=${encodeURIComponent(query)}&type=video`
-      ];
-
-      let results = [];
-
-      for (const url of endpoints) {
-        try {
-          const res = await fetch(url);
-          if (!res.ok) continue;
-          const data = await res.json();
-
-          if (data.items) {
-            results = data.items.slice(0, 5).map(v => ({
-              id: v.url.split('v=')[1] || v.url.replace('/watch?v=', ''),
-              title: v.title,
-              thumbnail: v.thumbnail
-            }));
-          } else if (Array.isArray(data)) {
-            results = data.slice(0, 5).map(v => ({
-              id: v.videoId,
-              title: v.title,
-              thumbnail: `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`
-            }));
-          }
-
-          if (results.length > 0) break;
-        } catch (e) {
-          console.warn('Endpoint failed, trying next...');
-        }
+    function searchSong() {
+      const query = document.getElementById('searchInput').value;
+      if (query.trim()) {
+        document.getElementById('results').innerHTML = '<div style="font-size:0.8rem; color:#94a3b8;">Searching YouTube...</div>';
+        socket.emit('searchSong', query);
       }
-
-      renderSearchResults(results);
     }
 
-    function renderSearchResults(results) {
+    function sendSound(sound) { socket.emit('playSound', sound); }
+    function changeVolume(val) {
+      document.getElementById('volLabel').textContent = `${val}%`;
+      socket.emit('setVolume', val);
+    }
+
+    socket.on('searchResults', (results) => {
       const resultsDiv = document.getElementById('results');
       resultsDiv.innerHTML = '';
-
       if (!results || results.length === 0) {
-        resultsDiv.innerHTML = '<div style="font-size:0.8rem; color:#ef4444;">No songs found. Try a different query.</div>';
+        resultsDiv.innerHTML = '<div style="font-size:0.8rem; color:#ef4444;">No songs found.</div>';
         return;
       }
 
@@ -243,27 +187,17 @@
           <div class="title">${item.title}</div>
         `;
         div.onclick = () => {
-          socket.emit('addSong', { id: item.id, title: item.title, userName: userName });
+          socket.emit('addSong', { input: item.id, userName: userName });
           saveToHistory(item);
-          resultsDiv.innerHTML = '<div style="font-size:0.8rem; color:#22c55e;">✓ Added to queue!</div>';
+          resultsDiv.innerHTML = '<div style="font-size:0.8rem; color:#22c55e;">✓ Added to queue & history!</div>';
           document.getElementById('searchInput').value = '';
           setTimeout(() => { resultsDiv.innerHTML = ''; }, 2000);
         };
         resultsDiv.appendChild(div);
       });
-    }
+    });
 
-    function sendSound(sound) { socket.emit('playSound', sound); }
-    function changeVolume(val) {
-      document.getElementById('volLabel').textContent = `${val}%`;
-      socket.emit('setVolume', val);
-    }
-
-    function prevSong() { socket.emit('prevSong'); }
-    function playSong() { socket.emit('playSong'); }
-    function pauseSong() { socket.emit('pauseSong'); }
     function skipSong() { socket.emit('nextSong'); }
-
     function removeSong(index) { socket.emit('removeSong', index); }
     function moveSong(fromIndex, toIndex) { socket.emit('reorderQueue', { fromIndex, toIndex }); }
 
@@ -271,15 +205,13 @@
       const nowPlayingDiv = document.getElementById('nowPlaying');
       const queueDiv = document.getElementById('remoteQueue');
 
-      if (queue && queue.length > 0) {
+      if (queue.length > 0) {
         nowPlayingDiv.textContent = `${queue[0].title} (${queue[0].user})`;
       } else {
         nowPlayingDiv.textContent = "Nothing playing";
       }
 
       queueDiv.innerHTML = '';
-      if (!queue) return;
-
       queue.slice(1).forEach((song, i) => {
         const actualIndex = i + 1;
         const item = document.createElement('div');

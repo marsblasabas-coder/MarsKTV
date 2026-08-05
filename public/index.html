@@ -12,9 +12,6 @@
     .navbar { height: 50px; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; background-color: #0b1329; border-bottom: 1px solid #16213e; }
     .brand { font-weight: 800; font-size: 1.1rem; color: #fff; }
     .brand span { color: #ec4899; font-size: 0.7rem; display: block; letter-spacing: 1px; font-weight: 600; }
-    .header-info-box { display: flex; align-items: center; gap: 12px; }
-    .date-time-text { color: #ffcc00; font-weight: 600; font-size: 0.95rem; letter-spacing: 0.5px; }
-    .queue-box { background-color: #ffcc00; color: #080d19; font-weight: 800; font-size: 0.95rem; padding: 2px 10px; border-radius: 6px; min-width: 20px; text-align: center; box-shadow: 0 0 8px rgba(255, 204, 0, 0.4); }
     .main-container { display: grid; grid-template-columns: 1fr 320px; grid-template-rows: 1fr auto; gap: 12px; padding: 12px; flex: 1; height: calc(100vh - 50px); }
     .player-section { display: flex; flex-direction: column; gap: 10px; height: 100%; }
     .video-wrapper { position: relative; flex: 1; background: #000; border-radius: 12px; overflow: hidden; border: 1px solid #1e293b; }
@@ -41,10 +38,6 @@
 
   <div class="navbar">
     <div class="brand">SingRoom KTV <span>KARAOKE TOGETHER</span></div>
-    <div class="header-info-box">
-      <div id="liveDateTime" class="date-time-text">--</div>
-      <div id="queueBadge" class="queue-box">0</div>
-    </div>
   </div>
 
   <div class="main-container">
@@ -85,22 +78,12 @@
   <script src="https://www.youtube.com/iframe_api"></script>
   <script>
     const socket = io();
-    let player = null;
-    let isReady = false;
-    let currentVideoId = null;
-    let cachedQueue = [];
-
-    function updateClock() {
-      const now = new Date();
-      const optionsDate = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
-      const optionsTime = { hour: '2-digit', minute: '2-digit', hour12: true };
-      document.getElementById('liveDateTime').innerText = `${now.toLocaleDateString('en-US', optionsDate)}  |  ${now.toLocaleTimeString('en-US', optionsTime)}`;
-    }
-    setInterval(updateClock, 1000);
-    updateClock();
+    let player;
+    let isPlayerReady = false;
 
     const roomCode = 'ROOM-' + Math.floor(1000 + Math.random() * 9000);
     document.getElementById("roomDisplay").textContent = roomCode;
+
     socket.emit('joinRoom', roomCode);
 
     const mobileUrl = `${window.location.protocol}//${window.location.host}/remote.html?room=${roomCode}`;
@@ -110,19 +93,13 @@
       player = new YT.Player('player', {
         playerVars: { 'autoplay': 1, 'controls': 1 },
         events: {
-          'onReady': () => {
-            isReady = true;
-            if (cachedQueue.length > 0) renderPlayer(cachedQueue);
-          },
+          'onReady': () => { isPlayerReady = true; },
           'onStateChange': (e) => {
             if (e.data === YT.PlayerState.ENDED) socket.emit('nextSong');
           }
         }
       });
     }
-
-    socket.on('playerPlay', () => { if (isReady && player) player.playVideo(); });
-    socket.on('playerPause', () => { if (isReady && player) player.pauseVideo(); });
 
     socket.on('triggerSound', (sound) => {
       const toast = document.getElementById('reactionToast');
@@ -131,26 +108,23 @@
       setTimeout(() => { toast.style.display = 'none'; }, 2000);
     });
 
-    socket.on('updateVolume', (vol) => { if (isReady && player) player.setVolume(vol); });
+    socket.on('updateVolume', (vol) => {
+      if (player && player.setVolume) player.setVolume(vol);
+    });
 
-    function renderPlayer(queue) {
+    socket.on('updateQueue', (queue) => {
       const queueList = document.getElementById('queueList');
       const npTitle = document.getElementById('npTitle');
       const npUser = document.getElementById('npUser');
       const singerActivity = document.getElementById('singerActivity');
-      const queueBadge = document.getElementById('queueBadge');
-
-      queueBadge.innerText = queue ? queue.length : 0;
       queueList.innerHTML = '';
 
-      if (!queue || queue.length === 0) {
+      if (queue.length === 0) {
         npTitle.textContent = "No song playing";
         npUser.textContent = "Guest";
         singerActivity.textContent = "♪ Now singing: Guest";
         queueList.className = "empty-queue";
         queueList.textContent = "No songs queued yet";
-        currentVideoId = null;
-        if (isReady && player) player.stopVideo();
         return;
       }
 
@@ -158,9 +132,11 @@
       npUser.textContent = queue[0].user || 'Guest';
       singerActivity.textContent = `♪ Now singing: ${queue[0].user || 'Guest'}`;
 
-      if (isReady && player && currentVideoId !== queue[0].id) {
-        currentVideoId = queue[0].id;
-        player.loadVideoById(queue[0].id);
+      if (isPlayerReady && queue[0]) {
+        const currentData = player.getVideoData();
+        if (!currentData || currentData.video_id !== queue[0].id) {
+          player.loadVideoById(queue[0].id);
+        }
       }
 
       const upcoming = queue.slice(1);
@@ -176,11 +152,6 @@
           queueList.appendChild(item);
         });
       }
-    }
-
-    socket.on('updateQueue', (queue) => {
-      cachedQueue = queue;
-      renderPlayer(queue);
     });
   </script>
 </body>

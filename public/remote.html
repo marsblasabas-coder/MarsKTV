@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KTV Remote</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, sans-serif; background: #080d19; color: white; padding: 16px; margin: 0; }
+    h2 { margin: 0 0 4px 0; text-align: center; font-size: 1.2rem; }
+    .room-badge { text-align: center; font-size: 0.75rem; color: #ec4899; font-weight: bold; margin-bottom: 12px; }
+    .user-box { background: #0f1a30; padding: 10px; border-radius: 8px; margin-bottom: 12px; font-size: 0.85rem; display: flex; align-items: center; justify-content: space-between; border: 1px solid #1e293b; }
+    input[type="text"] { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #1e293b; background: #0f1a30; color: white; font-size: 15px; margin-bottom: 8px; }
+    .search-box { display: flex; gap: 8px; }
+    button { padding: 12px; border-radius: 8px; border: none; font-size: 14px; font-weight: bold; cursor: pointer; }
+    .btn-search { background: #06b6d4; color: black; white-space: nowrap; }
+    .btn-skip { background: #ef4444; color: white; width: 100%; margin-top: 10px; }
+    .soundboard { display: flex; gap: 8px; margin-top: 12px; }
+    .btn-sound { flex: 1; background: #334155; color: white; font-size: 1rem; padding: 10px 0; }
+    .vol-box { background: #0f1a30; padding: 12px; border-radius: 8px; margin-top: 12px; border: 1px solid #1e293b; }
+    .vol-box label { font-size: 0.8rem; color: #94a3b8; display: block; margin-bottom: 6px; }
+    input[type="range"] { width: 100%; }
+    .results-list, .history-list { margin-top: 8px; max-height: 200px; overflow-y: auto; }
+    .result-item, .history-item { display: flex; align-items: center; gap: 10px; background: #16233d; padding: 8px; border-radius: 6px; margin-bottom: 6px; cursor: pointer; }
+    .result-item img, .history-item img { width: 50px; height: 38px; border-radius: 4px; object-fit: cover; }
+    .title { font-size: 0.8rem; line-height: 1.2; flex: 1; }
+    .tab-bar { display: flex; gap: 8px; margin-top: 16px; border-bottom: 1px solid #1e293b; padding-bottom: 8px; }
+    .tab-btn { flex: 1; background: #16233d; color: #94a3b8; padding: 8px; border-radius: 6px; font-size: 0.8rem; }
+    .tab-btn.active { background: #06b6d4; color: black; }
+    .queue-box { background: #0f1a30; padding: 12px; border-radius: 10px; margin-top: 12px; border: 1px solid #1e293b; }
+    .song-item { background: #16233d; padding: 8px 12px; border-radius: 6px; margin-top: 6px; font-size: 0.85rem; }
+    .now-playing { background: #ec4899; color: white; padding: 8px 12px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+
+  <h2>🎤 SingRoom Remote</h2>
+  <div id="roomTag" class="room-badge">Connected to: Unknown Room</div>
+
+  <div class="user-box">
+    <span>Singer Name: <strong id="nameDisplay">Guest</strong></span>
+    <button onclick="changeName()" style="padding:4px 8px; font-size:0.75rem; background:#334155; color:white;">Change</button>
+  </div>
+
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="Search song or artist...">
+    <button class="btn-search" onclick="searchSong()">Search</button>
+  </div>
+
+  <div id="results" class="results-list"></div>
+
+  <div class="soundboard">
+    <button class="btn-sound" onclick="sendSound('applause')">👏</button>
+    <button class="btn-sound" onclick="sendSound('airhorn')">📢</button>
+    <button class="btn-sound" onclick="sendSound('cheer')">🎉</button>
+  </div>
+
+  <div class="vol-box">
+    <label>🔊 TV Volume: <span id="volLabel">100%</span></label>
+    <input type="range" min="0" max="100" value="100" oninput="changeVolume(this.value)">
+  </div>
+
+  <button class="btn-skip" onclick="skipSong()">⏭ Skip Current Song</button>
+
+  <div class="tab-bar">
+    <button id="tabQueueBtn" class="tab-btn active" onclick="switchTab('queue')">📋 Queue</button>
+    <button id="tabFavBtn" class="tab-btn" onclick="switchTab('favs')">⭐ Quick Add / History</button>
+  </div>
+
+  <div id="queueSection" class="queue-box">
+    <div style="font-size:0.75rem; color:#ec4899; font-weight:800; margin-bottom:4px;">NOW PLAYING</div>
+    <div id="nowPlaying" class="now-playing">Nothing playing</div>
+
+    <div style="font-size:0.75rem; color:#06b6d4; font-weight:800; margin:12px 0 4px 0;">UP NEXT</div>
+    <div id="remoteQueue"></div>
+  </div>
+
+  <div id="favsSection" class="queue-box" style="display: none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <div style="font-size:0.75rem; color:#06b6d4; font-weight:800;">RECENTLY QUEUED</div>
+      <button onclick="clearHistory()" style="padding:2px 6px; font-size:0.7rem; background:#ef4444; color:white;">Clear</button>
+    </div>
+    <div id="historyList" class="history-list"></div>
+  </div>
+
+  <script>
+    const socket = io();
+
+    // Read room parameter from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomCode = urlParams.get('room') || prompt("Enter Room Code:");
+    
+    document.getElementById('roomTag').textContent = `Connected to: ${roomCode}`;
+    socket.emit('joinRoom', roomCode);
+
+    let userName = localStorage.getItem('ktv_user') || 'Singer ' + Math.floor(Math.random() * 900 + 100);
+    document.getElementById('nameDisplay').textContent = userName;
+    let songHistory = JSON.parse(localStorage.getItem('ktv_history') || '[]');
+
+    function changeName() {
+      const name = prompt("Enter your name:", userName);
+      if (name) {
+        userName = name;
+        localStorage.setItem('ktv_user', name);
+        document.getElementById('nameDisplay').textContent = userName;
+      }
+    }
+
+    function switchTab(tab) {
+      if (tab === 'queue') {
+        document.getElementById('queueSection').style.display = 'block';
+        document.getElementById('favsSection').style.display = 'none';
+        document.getElementById('tabQueueBtn').classList.add('active');
+        document.getElementById('tabFavBtn').classList.remove('active');
+      } else {
+        document.getElementById('queueSection').style.display = 'none';
+        document.getElementById('favsSection').style.display = 'block';
+        document.getElementById('tabQueueBtn').classList.remove('active');
+        document.getElementById('tabFavBtn').classList.add('active');
+        renderHistory();
+      }
+    }
+
+    function saveToHistory(item) {
+      songHistory = songHistory.filter(s => s.id !== item.id);
+      songHistory.unshift(item);
+      if (songHistory.length > 15) songHistory.pop();
+      localStorage.setItem('ktv_history', JSON.stringify(songHistory));
+    }
+
+    function renderHistory() {
+      const list = document.getElementById('historyList');
+      list.innerHTML = '';
+      if (songHistory.length === 0) {
+        list.innerHTML = '<div style="font-size:0.8rem; color:#64748b;">No recent songs yet.</div>';
+        return;
+      }
+      songHistory.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'history-item';
+        div.innerHTML = `
+          <img src="${item.thumbnail}">
+          <div class="title">${item.title}</div>
+          <button style="padding:4px 8px; font-size:0.75rem; background:#22c55e; color:white;">+ Add</button>
+        `;
+        div.onclick = () => {
+          socket.emit('addSong', { input: item.id, userName: userName });
+          switchTab('queue');
+        };
+        list.appendChild(div);
+      });
+    }
+
+    function clearHistory() {
+      songHistory = [];
+      localStorage.removeItem('ktv_history');
+      renderHistory();
+    }
+
+    function searchSong() {
+      const query = document.getElementById('searchInput').value;
+      if (query.trim()) {
+        document.getElementById('results').innerHTML = '<div style="font-size:0.8rem; color:#94a3b8;">Searching YouTube...</div>';
+        socket.emit('searchSong', query);
+      }
+    }
+
+    function sendSound(sound) { socket.emit('playSound', sound); }
+    function changeVolume(val) {
+      document.getElementById('volLabel').textContent = `${val}%`;
+      socket.emit('setVolume', val);
+    }
+
+    socket.on('searchResults', (results) => {
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '';
+      if (results.length === 0) {
+        resultsDiv.innerHTML = '<div style="font-size:0.8rem; color:#ef4444;">No songs found.</div>';
+        return;
+      }
+
+      results.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'result-item';
+        div.innerHTML = `
+          <img src="${item.thumbnail}">
+          <div class="title">${item.title}</div>
+        `;
+        div.onclick = () => {
+          socket.emit('addSong', { input: item.id, userName: userName });
+          saveToHistory(item);
+          resultsDiv.innerHTML = '<div style="font-size:0.8rem; color:#22c55e;">✓ Added to queue & history!</div>';
+          document.getElementById('searchInput').value = '';
+          setTimeout(() => { resultsDiv.innerHTML = ''; }, 2000);
+        };
+        resultsDiv.appendChild(div);
+      });
+    });
+
+    function skipSong() { socket.emit('nextSong'); }
+    function removeSong(index) { socket.emit('removeSong', index); }
+    function moveSong(fromIndex, toIndex) { socket.emit('reorderQueue', { fromIndex, toIndex }); }
+
+    socket.on('updateQueue', (queue) => {
+      const nowPlayingDiv = document.getElementById('nowPlaying');
+      const queueDiv = document.getElementById('remoteQueue');
+
+      if (queue.length > 0) {
+        nowPlayingDiv.textContent = `${queue[0].title} (${queue[0].user})`;
+      } else {
+        nowPlayingDiv.textContent = "Nothing playing";
+      }
+
+      queueDiv.innerHTML = '';
+      queue.slice(1).forEach((song, i) => {
+        const actualIndex = i + 1;
+        const item = document.createElement('div');
+        item.className = 'song-item';
+        item.style.display = 'flex';
+        item.style.justifyContent = 'space-between';
+        item.style.alignItems = 'center';
+        
+        item.innerHTML = `
+          <div style="flex: 1; margin-right: 8px;">
+            <strong>${actualIndex}.</strong> ${song.title} <span style="opacity: 0.7; font-size: 0.75rem;">[${song.user}]</span>
+          </div>
+          <div style="display: flex; gap: 4px;">
+            ${actualIndex > 1 ? `<button onclick="moveSong(${actualIndex}, ${actualIndex - 1})" style="padding: 4px 8px; font-size: 0.75rem; background: #334155; color: white;">▲</button>` : ''}
+            ${actualIndex < queue.length - 1 ? `<button onclick="moveSong(${actualIndex}, ${actualIndex + 1})" style="padding: 4px 8px; font-size: 0.75rem; background: #334155; color: white;">▼</button>` : ''}
+            <button onclick="removeSong(${actualIndex})" style="padding: 4px 8px; font-size: 0.75rem; background: #ef4444; color: white;">✕</button>
+          </div>
+        `;
+        queueDiv.appendChild(item);
+      });
+    });
+  </script>
+</body>
+</html>

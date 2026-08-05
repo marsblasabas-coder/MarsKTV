@@ -17,32 +17,62 @@ function getRoom(roomCode) {
   return rooms[roomCode];
 }
 
-// Fast search helper using public Invidious instances
+// Multi-Mirror YouTube Search Function
 async function searchYouTube(query) {
+  const cleanQuery = encodeURIComponent(query.trim());
+  
+  // Provider 1: Piped API Primary Mirror
   try {
-    const res = await fetch(`https://inv.api.store/api/v1/search?q=${encodeURIComponent(query)}&type=video`);
-    if (!res.ok) throw new Error('Search API request failed');
-    const data = await res.json();
-    return data.slice(0, 5).map(v => ({
-      id: v.videoId,
-      title: v.title,
-      thumbnail: v.videoThumbnails?.[0]?.url || `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`
-    }));
-  } catch (err) {
-    // Fallback instance if primary is busy
-    try {
-      const fallbackRes = await fetch(`https://vid.puffyan.us/api/v1/search?q=${encodeURIComponent(query)}&type=video`);
-      const fallbackData = await fallbackRes.json();
-      return fallbackData.slice(0, 5).map(v => ({
-        id: v.videoId,
-        title: v.title,
-        thumbnail: `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`
-      }));
-    } catch (fallbackErr) {
-      console.error('All search mirrors failed:', fallbackErr);
-      return [];
+    const res = await fetch(`https://pipedapi.kavin.rocks/search?q=${cleanQuery}&filter=videos`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.items && data.items.length > 0) {
+        return data.items.slice(0, 5).map(v => ({
+          id: v.url.split('v=')[1] || v.url.replace('/watch?v=', ''),
+          title: v.title,
+          thumbnail: v.thumbnail
+        }));
+      }
     }
+  } catch (err) {
+    console.warn('Primary Piped API failed, switching to backup 1...');
   }
+
+  // Provider 2: Secondary Invidious Instance
+  try {
+    const res = await fetch(`https://inv.tux.im/api/v1/search?q=${cleanQuery}&type=video`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data.slice(0, 5).map(v => ({
+          id: v.videoId,
+          title: v.title,
+          thumbnail: `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`
+        }));
+      }
+    }
+  } catch (err) {
+    console.warn('Invidious tux.im failed, switching to backup 2...');
+  }
+
+  // Provider 3: Fallback Public Invidious Instance
+  try {
+    const res = await fetch(`https://invidious.nerdvpn.de/api/v1/search?q=${cleanQuery}&type=video`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data.slice(0, 5).map(v => ({
+          id: v.videoId,
+          title: v.title,
+          thumbnail: `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`
+        }));
+      }
+    }
+  } catch (err) {
+    console.error('All search mirrors failed:', err);
+  }
+
+  return [];
 }
 
 io.on('connection', (socket) => {
@@ -69,7 +99,7 @@ io.on('connection', (socket) => {
     let songId = data.input;
     let songTitle = data.title || "Unknown Song";
 
-    // If only query text was provided without title
+    // If only text was sent without a direct title or 11-char video ID
     if (!data.title && typeof data.input === 'string' && data.input.length !== 11) {
       const results = await searchYouTube(data.input);
       if (results.length > 0) {
@@ -84,7 +114,6 @@ io.on('connection', (socket) => {
       user: data.userName || 'Guest'
     });
 
-    // Instantly sync room queue across monitor and remotes
     io.to(currentRoom).emit('updateQueue', room.queue);
   });
 

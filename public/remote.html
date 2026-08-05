@@ -11,20 +11,20 @@
     h2 { margin: 0 0 4px 0; text-align: center; font-size: 1.2rem; }
     .room-badge { text-align: center; font-size: 0.75rem; color: #ec4899; font-weight: bold; margin-bottom: 12px; }
     
-    /* Yellow Media Control Buttons Bar */
+    /* 4 Yellow Playback Control Buttons: Prev, Play, Pause, Next */
     .playback-controls {
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: 16px;
+      gap: 12px;
       margin-bottom: 16px;
     }
     .ctrl-btn {
       background-color: #ffcc00;
       color: #080d19;
       border: none;
-      width: 52px;
-      height: 52px;
+      width: 48px;
+      height: 48px;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -39,8 +39,8 @@
       background-color: #e6b800;
     }
     .ctrl-btn svg {
-      width: 24px;
-      height: 24px;
+      width: 22px;
+      height: 22px;
       fill: #080d19;
     }
 
@@ -72,8 +72,11 @@
   <h2>🎤 SingRoom Remote</h2>
   <div id="roomTag" class="room-badge">Connected to: Unknown Room</div>
 
-  <!-- Label-Free Play / Pause / Next Icon Control Buttons -->
+  <!-- Previous, Play, Pause, Next Buttons -->
   <div class="playback-controls">
+    <button class="ctrl-btn" onclick="prevSong()" aria-label="Previous">
+      <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+    </button>
     <button class="ctrl-btn" onclick="playSong()" aria-label="Play">
       <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
     </button>
@@ -134,7 +137,6 @@
   <script>
     const socket = io();
 
-    // Read room parameter from URL
     const urlParams = new URLSearchParams(window.location.search);
     const roomCode = urlParams.get('room') || prompt("Enter Room Code:");
     
@@ -219,7 +221,8 @@
       socket.emit('setVolume', val);
     }
 
-    /* Play, Pause, Skip Controls */
+    /* Socket Functions for Prev, Play, Pause, Next */
+    function prevSong() { socket.emit('prevSong'); }
     function playSong() { socket.emit('playSong'); }
     function pauseSong() { socket.emit('pauseSong'); }
     function skipSong() { socket.emit('nextSong'); }

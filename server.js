@@ -1,134 +1,126 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http, {
-  cors: { origin: "*", methods: ["GET", "POST"] }
-});
+const io = require('socket.io')(http);
+const yts = require('yt-search');
 
 app.use(express.static('public'));
 
-// Store queues per room: { "ROOM12": [song1, song2], "ROOM34": [] }
-const roomQueues = {};
+// Store state per room
+const rooms = {};
 
-function extractVideoId(input) {
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-  const match = input.match(regExp);
-  return (match && match[2].length === 11) ? match[2] : input.trim();
-}
-
-async function fetchVideoTitle(videoId) {
-  try {
-    const response = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
-    if (!response.ok) throw new Error('Failed to fetch');
-    const data = await response.json();
-    return data.title;
-  } catch (error) {
-    return `Song (${videoId})`;
+function getRoom(roomCode) {
+  if (!rooms[roomCode]) {
+    rooms[roomCode] = {
+      queue: [],
+      playedHistory: []
+    };
   }
-}
-
-async function searchYouTube(query) {
-  try {
-    const res = await fetch(`https://www.youtube.com/results?search_query=${encodeURIComponent(query + " karaoke")}`);
-    const html = await res.text();
-    const dataMatch = html.match(/var ytInitialData = ({.*?});<\/script>/);
-    if (!dataMatch) return [];
-
-    const json = JSON.parse(dataMatch[1]);
-    const contents = json.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents[0].itemSectionRenderer.contents;
-
-    const results = [];
-    for (let item of contents) {
-      if (item.videoRenderer && results.length < 5) {
-        results.push({
-          id: item.videoRenderer.videoId,
-          title: item.videoRenderer.title.runs[0].text,
-          thumbnail: item.videoRenderer.thumbnail.thumbnails[0].url
-        });
-      }
-    }
-    return results;
-  } catch (err) {
-    console.error("Search error:", err);
-    return [];
-  }
+  return rooms[roomCode];
 }
 
 io.on('connection', (socket) => {
+  let currentRoom = null;
 
-  // Socket joins a specific room
   socket.on('joinRoom', (roomCode) => {
+    currentRoom = roomCode;
     socket.join(roomCode);
-    socket.roomCode = roomCode;
-
-    // Initialize room queue if it doesn't exist
-    if (!roomQueues[roomCode]) {
-      roomQueues[roomCode] = [];
-    }
-
-    // Send current queue to the newly connected user
-    socket.emit('updateQueue', roomQueues[roomCode]);
+    const room = getRoom(currentRoom);
+    io.to(currentRoom).emit('updateQueue', room.queue);
   });
 
   socket.on('searchSong', async (query) => {
-    const results = await searchYouTube(query);
-    socket.emit('searchResults', results);
+    try {
+      const r = await yts(query);
+      const videos = r.videos.slice(0, 5).map(v => ({
+        id: v.videoId,
+        title: v.title,
+        thumbnail: v.thumbnail
+      }));
+      socket.emit('searchResults', videos);
+    } catch (err) {
+      socket.emit('searchResults', []);
+    }
   });
 
   socket.on('addSong', async (data) => {
-    const roomCode = socket.roomCode;
-    if (!roomCode || !roomQueues[roomCode]) return;
+    if (!currentRoom) return;
+    const room = getRoom(currentRoom);
+    
+    let songId = data.input;
+    let songTitle = "Unknown Song";
 
-    const videoId = extractVideoId(data.input);
-    const title = await fetchVideoTitle(videoId);
-    const userName = data.userName || 'Guest';
+    if (!data.input.includes('http') && data.input.length !== 11) {
+      const r = await yts(data.input);
+      if (r.videos.length > 0) {
+        songId = r.videos[0].videoId;
+        songTitle = r.videos[0].title;
+      }
+    } else {
+      const r = await yts({ videoId: data.input });
+      if (r) songTitle = r.title;
+    }
 
-    roomQueues[roomCode].push({ id: videoId, title: title, user: userName });
-    io.to(roomCode).emit('updateQueue', roomQueues[roomCode]);
+    room.queue.push({ id: songId, title: songTitle, user: data.userName });
+    io.to(currentRoom).emit('updateQueue', room.queue);
+  });
+
+  /* Playback Control Handlers */
+  socket.on('playSong', () => {
+    if (currentRoom) io.to(currentRoom).emit('playerPlay');
+  });
+
+  socket.on('pauseSong', () => {
+    if (currentRoom) io.to(currentRoom).emit('playerPause');
   });
 
   socket.on('nextSong', () => {
-    const roomCode = socket.roomCode;
-    if (roomCode && roomQueues[roomCode]) {
-      roomQueues[roomCode].shift();
-      io.to(roomCode).emit('updateQueue', roomQueues[roomCode]);
+    if (!currentRoom) return;
+    const room = getRoom(currentRoom);
+    if (room.queue.length > 0) {
+      const finishedSong = room.queue.shift();
+      room.playedHistory.push(finishedSong);
+      io.to(currentRoom).emit('updateQueue', room.queue);
+    }
+  });
+
+  socket.on('prevSong', () => {
+    if (!currentRoom) return;
+    const room = getRoom(currentRoom);
+    if (room.playedHistory.length > 0) {
+      const previousSong = room.playedHistory.pop();
+      room.queue.unshift(previousSong); // Put previous song back at the top of the queue
+      io.to(currentRoom).emit('updateQueue', room.queue);
     }
   });
 
   socket.on('removeSong', (index) => {
-    const roomCode = socket.roomCode;
-    if (roomCode && roomQueues[roomCode] && index >= 0 && index < roomQueues[roomCode].length) {
-      roomQueues[roomCode].splice(index, 1);
-      io.to(roomCode).emit('updateQueue', roomQueues[roomCode]);
+    if (!currentRoom) return;
+    const room = getRoom(currentRoom);
+    if (index >= 0 && index < room.queue.length) {
+      room.queue.splice(index, 1);
+      io.to(currentRoom).emit('updateQueue', room.queue);
     }
   });
 
   socket.on('reorderQueue', ({ fromIndex, toIndex }) => {
-    const roomCode = socket.roomCode;
-    if (roomCode && roomQueues[roomCode]) {
-      const q = roomQueues[roomCode];
-      if (fromIndex >= 1 && toIndex >= 1 && fromIndex < q.length && toIndex < q.length) {
-        const [movedItem] = q.splice(fromIndex, 1);
-        q.splice(toIndex, 0, movedItem);
-        io.to(roomCode).emit('updateQueue', q);
-      }
+    if (!currentRoom) return;
+    const room = getRoom(currentRoom);
+    if (fromIndex >= 0 && fromIndex < room.queue.length && toIndex >= 0 && toIndex < room.queue.length) {
+      const [movedItem] = room.queue.splice(fromIndex, 1);
+      room.queue.splice(toIndex, 0, movedItem);
+      io.to(currentRoom).emit('updateQueue', room.queue);
     }
   });
 
-  socket.on('playSound', (soundName) => {
-    if (socket.roomCode) {
-      io.to(socket.roomCode).emit('triggerSound', soundName);
-    }
+  socket.on('playSound', (sound) => {
+    if (currentRoom) io.to(currentRoom).emit('triggerSound', sound);
   });
 
-  socket.on('setVolume', (volumeLevel) => {
-    if (socket.roomCode) {
-      io.to(socket.roomCode).emit('updateVolume', volumeLevel);
-    }
+  socket.on('setVolume', (vol) => {
+    if (currentRoom) io.to(currentRoom).emit('updateVolume', vol);
   });
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, '0.0.0.0', () => {
-  console.log(`KTV App live on port ${PORT}`);
-});
+http.listen(PORT, () => console.log(`Server running on port ${PORT}`));

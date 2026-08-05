@@ -3,434 +3,260 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MarsKTV - TV Display</title>
+  <title>MarsKTV Display</title>
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://www.youtube.com/iframe_api"></script>
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      background-color: #080d19;
-      color: #f8fafc;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #080d19; color: #ffffff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
     /* Top Gold Header */
-    header {
-      height: 70px;
-      background: rgba(15, 23, 42, 0.95);
-      border-bottom: 1px solid rgba(255, 179, 0, 0.3);
-      padding: 0 2rem;
+    .navbar {
+      height: 60px;
+      padding: 0 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      background-color: #0b1329;
+      border-bottom: 1px solid rgba(255, 179, 0, 0.3);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.4);
     }
 
-    .gold-text {
+    .gold-brand {
+      font-weight: 900;
+      font-size: 1.5rem;
+      letter-spacing: 2px;
       background: linear-gradient(135deg, #ffe082 0%, #ffb300 50%, #ff8f00 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      font-weight: 900;
-      font-size: 1.8rem;
-      letter-spacing: 2px;
       filter: drop-shadow(0 0 8px rgba(255, 179, 0, 0.4));
     }
 
     .gold-clock {
       color: #ffd700;
       font-family: 'Monaco', 'Consolas', monospace;
-      font-size: 1.1rem;
+      font-size: 1rem;
       font-weight: 700;
       letter-spacing: 1px;
       text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
     }
 
     .queue-badge {
-      background: rgba(15, 23, 42, 0.85);
+      background: rgba(15, 23, 42, 0.9);
       border: 1px solid rgba(255, 179, 0, 0.6);
       border-radius: 20px;
-      padding: 6px 18px;
+      padding: 5px 16px;
       color: #cbd5e1;
-      font-size: 0.85rem;
-      font-weight: 700;
+      font-size: 0.8rem;
+      font-weight: 800;
       letter-spacing: 1px;
-      box-shadow: 0 0 15px rgba(255, 179, 0, 0.2);
+      box-shadow: 0 0 12px rgba(255, 179, 0, 0.2);
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
     }
 
     .gold-number {
       color: #ffd700;
-      font-size: 1.3rem;
-      font-weight: 900;
-    }
-
-    /* Main Container Grid */
-    .main-container {
-      flex: 1;
-      display: grid;
-      grid-template-columns: 1fr 380px;
-      gap: 1.5rem;
-      padding: 1.5rem;
-      height: calc(100vh - 70px);
-    }
-
-    /* Left Player Area */
-    .player-section {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .video-wrapper {
-      position: relative;
-      width: 100%;
-      flex: 1;
-      background: #000;
-      border-radius: 16px;
-      overflow: hidden;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-    }
-
-    #player {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-
-    .now-playing-card {
-      background: rgba(15, 23, 42, 0.8);
-      border-radius: 12px;
-      padding: 1rem 1.5rem;
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .now-playing-info h3 {
-      font-size: 0.8rem;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    .now-playing-info p {
-      font-size: 1.2rem;
-      font-weight: 700;
-      color: #f1f5f9;
-      margin-top: 4px;
-    }
-
-    /* Sidebar Right */
-    .sidebar {
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-    }
-
-    .qr-card {
-      background: rgba(15, 23, 42, 0.8);
-      border-radius: 16px;
-      padding: 1.2rem;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      gap: 10px;
-    }
-
-    .qr-card h2 {
       font-size: 1.1rem;
-      color: #ffd700;
-      letter-spacing: 1px;
-    }
-
-    #qrcode {
-      background: #fff;
-      padding: 10px;
-      border-radius: 12px;
-    }
-
-    .room-code-text {
-      font-size: 1.2rem;
-      font-weight: 800;
-      color: #f8fafc;
-      letter-spacing: 2px;
-    }
-
-    .queue-card {
-      flex: 1;
-      background: rgba(15, 23, 42, 0.8);
-      border-radius: 16px;
-      padding: 1.2rem;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .queue-header {
-      font-size: 1rem;
-      font-weight: 800;
-      color: #cbd5e1;
-      margin-bottom: 1rem;
-      letter-spacing: 1px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .queue-list {
-      list-style: none;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      padding-right: 4px;
-    }
-
-    .queue-item {
-      background: rgba(30, 41, 59, 0.6);
-      padding: 10px 14px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    .queue-num {
-      color: #ffd700;
-      font-weight: 800;
-      font-size: 0.9rem;
-    }
-
-    .queue-title {
-      font-size: 0.9rem;
-      font-weight: 600;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* Reaction Animation Banner */
-    #reaction-overlay {
-      position: absolute;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      pointer-events: none;
-      font-size: 2.5rem;
       font-weight: 900;
-      color: #ffd700;
-      text-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
-      opacity: 0;
-      transition: opacity 0.3s ease, transform 0.3s ease;
-      z-index: 100;
     }
 
-    #reaction-overlay.show {
-      opacity: 1;
-      transform: translateX(-50%) translateY(10px);
+    /* Original Layout Grid */
+    .main-container {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 12px;
+      padding: 12px;
+      flex: 1;
+      height: calc(100vh - 60px);
     }
+
+    .player-section { display: flex; flex-direction: column; gap: 10px; height: 100%; }
+    .video-wrapper { position: relative; flex: 1; background: #000; border-radius: 12px; overflow: hidden; border: 1px solid #1e293b; }
+    #player { width: 100%; height: 100%; }
+    
+    .now-playing-bar { background: #0f1a30; border: 1px solid #1e293b; border-radius: 10px; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; }
+    .np-tag { color: #ec4899; font-weight: 800; font-size: 0.8rem; margin-right: 8px; }
+    
+    .sidebar-section { display: flex; flex-direction: column; gap: 10px; height: 100%; }
+    .queue-card { flex: 1; background: #0f1a30; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; overflow-y: auto; }
+    .card-title { color: #ec4899; font-size: 0.75rem; font-weight: 800; margin-bottom: 12px; }
+    .empty-queue { color: #64748b; font-size: 0.85rem; }
+    .queue-item { background: #16233d; padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.85rem; color: #cbd5e1; }
+    
+    .singers-card { background: #0f1a30; border: 1px solid #1e293b; border-radius: 12px; padding: 12px; }
+    .singer-item { background: #16233d; padding: 8px 12px; border-radius: 20px; font-size: 0.8rem; color: #94a3b8; }
+    
+    .qr-card { background: #0f1a30; border: 1px solid #1e293b; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 12px; }
+    #qrcode { background: #ffffff; padding: 6px; border-radius: 8px; min-width: 82px; min-height: 82px; display: flex; align-items: center; justify-content: center; }
+    .qr-info { display: flex; flex-direction: column; gap: 4px; }
+    .room-code { font-size: 1.1rem; font-weight: 800; color: #fff; }
+    
+    .toast-overlay { position: absolute; top: 20px; right: 20px; background: rgba(236, 72, 153, 0.9); color: white; padding: 12px 24px; border-radius: 30px; font-weight: bold; font-size: 1.2rem; display: none; z-index: 100; }
   </style>
 </head>
 <body>
 
-  <!-- Top Navigation Header -->
-  <header>
-    <h1 class="gold-text">MARSKTV</h1>
-    <div id="live-clock" class="gold-clock">--:--:--</div>
+  <div id="reactionToast" class="toast-overlay"></div>
+
+  <!-- Gold Top Navbar -->
+  <div class="navbar">
+    <div class="gold-brand">MARSKTV</div>
+    <div id="liveClock" class="gold-clock">--:--:--</div>
     <div class="queue-badge">
-      TOTAL IN QUEUE: <span id="queue-count-display" class="gold-number">0</span>
+      TOTAL IN QUEUE: <span id="queueCount" class="gold-number">0</span>
     </div>
-  </header>
-
-  <!-- Main Content Area -->
-  <div class="main-container">
-    
-    <!-- Player & Song Details -->
-    <div class="player-section">
-      <div class="video-wrapper">
-        <div id="reaction-overlay"></div>
-        <div id="player"></div>
-      </div>
-
-      <div class="now-playing-card">
-        <div class="now-playing-info">
-          <h3>Now Playing</h3>
-          <p id="current-song-title">Select a song from mobile remote...</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Sidebar Right -->
-    <div class="sidebar">
-      <!-- QR Room Code Box -->
-      <div class="qr-card">
-        <h2>SCAN TO CONTROL</h2>
-        <div id="qrcode"></div>
-        <div class="room-code-text" id="room-code">ROOM: ----</div>
-      </div>
-
-      <!-- Upcoming Queue List -->
-      <div class="queue-card">
-        <div class="queue-header">
-          <span>UP NEXT</span>
-        </div>
-        <ul id="queue-list" class="queue-list">
-          <li class="queue-item" style="color: #64748b;">Queue is empty</li>
-        </ul>
-      </div>
-    </div>
-
   </div>
 
+  <!-- Main KTV Display Area -->
+  <div class="main-container">
+    <div class="player-section">
+      <div class="video-wrapper">
+        <div id="player"></div>
+      </div>
+      <div class="now-playing-bar">
+        <div>
+          <span class="np-tag">♪ NOW PLAYING</span>
+          <span id="npTitle" class="np-title">No song playing</span>
+        </div>
+        <div style="color:#64748b; font-size:0.8rem;">Added by <span id="npUser">Guest</span></div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="queue-card">
+        <div class="card-title">▷ UP NEXT</div>
+        <div id="queueList" class="empty-queue">No songs queued yet</div>
+      </div>
+
+      <div class="singers-card">
+        <div id="singerActivity" class="singer-item">♪ Now singing: Guest</div>
+      </div>
+
+      <div class="qr-card">
+        <div id="qrcode"></div>
+        <div class="qr-info">
+          <div style="font-size:0.8rem; color:#94a3b8;">Scan to Join</div>
+          <div style="font-size:0.65rem; color:#ec4899; font-weight:800;">ROOM CODE</div>
+          <div id="roomDisplay" class="room-code">------</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.youtube.com/iframe_api"></script>
   <script>
     const socket = io();
     let player;
-    let currentQueue = [];
-    let isPlaying = false;
+    let isPlayerReady = false;
 
-    // Initialize YouTube Player
-    function onYouTubeIframeAPIReady() {
-      player = new YT.Player('player', {
-        height: '100%',
-        width: '100%',
-        playerVars: {
-          'autoplay': 1,
-          'controls': 1,
-          'modestbranding': 1
-        },
-        events: {
-          'onStateChange': onPlayerStateChange
-        }
-      });
-    }
-
-    function onPlayerStateChange(event) {
-      // YT.PlayerState.ENDED === 0
-      if (event.data === 0) {
-        socket.emit('songEnded');
-      }
-    }
-
-    // Live Clock Updater
+    // 1. Live Clock Function
     function startLiveClock() {
-      const clockEl = document.getElementById('live-clock');
-      if (!clockEl) return;
-
+      const clockEl = document.getElementById('liveClock');
       function update() {
         const now = new Date();
-        const options = { 
-          weekday: 'short', 
-          month: 'short', 
-          day: 'numeric', 
-          hour: '2-digit', 
-          minute: '2-digit', 
-          second: '2-digit' 
-        };
+        const options = { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
         clockEl.textContent = now.toLocaleDateString('en-US', options);
       }
-
       update();
       setInterval(update, 1000);
     }
+    startLiveClock();
 
-    document.addEventListener('DOMContentLoaded', () => {
-      startLiveClock();
+    // 2. Generate Room Code & Join Socket Room
+    const roomCode = 'ROOM-' + Math.floor(1000 + Math.random() * 9000);
+    document.getElementById("roomDisplay").textContent = roomCode;
 
-      // Register as TV display room host
-      socket.emit('createRoom');
+    socket.emit('joinRoom', roomCode);
+
+    // 3. Generate QR Code
+    const mobileUrl = `${window.location.protocol}//${window.location.host}/remote.html?room=${roomCode}`;
+    const qrContainer = document.getElementById("qrcode");
+    qrContainer.innerHTML = '';
+    new QRCode(qrContainer, {
+      text: mobileUrl,
+      width: 70,
+      height: 70,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.H
     });
 
-    // Handle Room Initialization
-    socket.on('roomCreated', (roomCode) => {
-      document.getElementById('room-code').textContent = `ROOM: ${roomCode}`;
-      
-      const remoteUrl = `${window.location.origin}/remote.html?room=${roomCode}`;
-      document.getElementById('qrcode').innerHTML = "";
-      new QRCode(document.getElementById("qrcode"), {
-        text: remoteUrl,
-        width: 140,
-        height: 140
+    // 4. YouTube Player Handler
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        playerVars: { 'autoplay': 1, 'controls': 1 },
+        events: {
+          'onReady': () => { isPlayerReady = true; },
+          'onStateChange': (e) => {
+            if (e.data === YT.PlayerState.ENDED) socket.emit('nextSong');
+          }
+        }
       });
+    }
+
+    // 5. Sound & Volume Event Listeners
+    socket.on('triggerSound', (sound) => {
+      const toast = document.getElementById('reactionToast');
+      toast.textContent = sound === 'applause' ? "👏 APPLAUSE!" : sound === 'airhorn' ? "📢 AIRHORN!" : "🎉 CHEER!";
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 2000);
     });
 
-    // Handle Queue Updates
+    socket.on('updateVolume', (vol) => {
+      if (player && player.setVolume) player.setVolume(vol);
+    });
+
+    // 6. Queue Sync Listener
     socket.on('updateQueue', (queue) => {
-      currentQueue = queue;
-      
-      // Update Total Queue Count Display
-      const countEl = document.getElementById('queue-count-display');
-      if (countEl) {
-        countEl.textContent = queue ? queue.length : 0;
-      }
+      const queueList = document.getElementById('queueList');
+      const npTitle = document.getElementById('npTitle');
+      const npUser = document.getElementById('npUser');
+      const singerActivity = document.getElementById('singerActivity');
+      const queueCount = document.getElementById('queueCount');
 
-      // Update Now Playing & Queue UI
-      const titleEl = document.getElementById('current-song-title');
-      const queueListEl = document.getElementById('queue-list');
+      // Update Total Queue Count Badge
+      queueCount.textContent = queue ? queue.length : 0;
 
-      if (queue.length === 0) {
-        titleEl.textContent = "Select a song from mobile remote...";
-        queueListEl.innerHTML = '<li class="queue-item" style="color: #64748b;">Queue is empty</li>';
-        if (player && player.stopVideo) player.stopVideo();
+      queueList.innerHTML = '';
+
+      if (!queue || queue.length === 0) {
+        npTitle.textContent = "No song playing";
+        npUser.textContent = "Guest";
+        singerActivity.textContent = "♪ Now singing: Guest";
+        queueList.className = "empty-queue";
+        queueList.textContent = "No songs queued yet";
         return;
       }
 
-      // Set Now Playing Title
-      titleEl.textContent = queue[0].title;
+      // Update Now Playing UI
+      npTitle.textContent = queue[0].title;
+      npUser.textContent = queue[0].user || 'Guest';
+      singerActivity.textContent = `♪ Now singing: ${queue[0].user || 'Guest'}`;
 
-      // Play current video if player is ready
-      if (player && player.loadVideoById) {
-        const currentVid = queue[0].videoId;
-        if (player.getVideoData && player.getVideoData().video_id !== currentVid) {
-          player.loadVideoById(currentVid);
+      // Load YouTube Video
+      if (isPlayerReady && queue[0]) {
+        const currentData = player.getVideoData();
+        if (!currentData || currentData.video_id !== queue[0].id) {
+          player.loadVideoById(queue[0].id);
         }
       }
 
-      // Render Up Next list
-      queueListEl.innerHTML = "";
-      if (queue.length <= 1) {
-        queueListEl.innerHTML = '<li class="queue-item" style="color: #64748b;">No upcoming songs</li>';
+      // Render Up Next List
+      const upcoming = queue.slice(1);
+      if (upcoming.length === 0) {
+        queueList.className = "empty-queue";
+        queueList.textContent = "No songs queued yet";
       } else {
-        queue.slice(1).forEach((song, idx) => {
-          const li = document.createElement('li');
-          li.className = 'queue-item';
-          li.innerHTML = `
-            <span class="queue-num">#${idx + 1}</span>
-            <span class="queue-title">${song.title}</span>
-          `;
-          queueListEl.appendChild(li);
+        queueList.className = "";
+        upcoming.forEach((song) => {
+          const item = document.createElement('div');
+          item.className = 'queue-item';
+          item.textContent = `${song.title} (${song.user})`;
+          queueList.appendChild(item);
         });
       }
-    });
-
-    // Controls listeners
-    socket.on('play', () => player && player.playVideo && player.playVideo());
-    socket.on('pause', () => player && player.pauseVideo && player.pauseVideo());
-    socket.on('setVolume', (vol) => player && player.setVolume && player.setVolume(vol));
-
-    // Reaction listener
-    socket.on('triggerReaction', (type) => {
-      const overlay = document.getElementById('reaction-overlay');
-      overlay.textContent = type === 'applause' ? '👏 APPLAUSE!' : '📣 AIRHORN!';
-      overlay.classList.add('show');
-      setTimeout(() => overlay.classList.remove('show'), 2000);
     });
   </script>
 </body>

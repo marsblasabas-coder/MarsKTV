@@ -12,7 +12,7 @@
     .room-badge { text-align: center; font-size: 0.75rem; color: #ec4899; font-weight: bold; margin-bottom: 12px; }
     
     .playback-controls { display: flex; justify-content: center; align-items: center; gap: 12px; margin-bottom: 16px; }
-    .ctrl-btn { background-color: #ffcc00; color: #080d19; border: none; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 0 10px rgba(255, 204, 0, 0.35); transition: transform 0.1s ease, background-color 0.2s ease; -webkit-tap-highlight-color: transparent; }
+    .ctrl-btn { background-color: #ffcc00; color: #080d19; border: none; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 0 10px rgba(255, 204, 0, 0.35); transition: transform 0.1s ease; -webkit-tap-highlight-color: transparent; }
     .ctrl-btn:active { transform: scale(0.92); background-color: #e6b800; }
     .ctrl-btn svg { width: 22px; height: 22px; fill: #080d19; }
 
@@ -44,7 +44,6 @@
   <h2>🎤 SingRoom Remote</h2>
   <div id="roomTag" class="room-badge">Connected to: Unknown Room</div>
 
-  <!-- Playback Controls Bar -->
   <div class="playback-controls">
     <button class="ctrl-btn" onclick="prevSong()" aria-label="Previous">
       <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
@@ -169,7 +168,7 @@
           <button style="padding:4px 8px; font-size:0.75rem; background:#22c55e; color:white;">+ Add</button>
         `;
         div.onclick = () => {
-          socket.emit('addSong', { input: item.id, title: item.title, userName: userName });
+          socket.emit('addSong', { id: item.id, title: item.title, userName: userName });
           switchTab('queue');
         };
         list.appendChild(div);
@@ -182,12 +181,76 @@
       renderHistory();
     }
 
-    function searchSong() {
-      const query = document.getElementById('searchInput').value;
-      if (query.trim()) {
-        document.getElementById('results').innerHTML = '<div style="font-size:0.8rem; color:#94a3b8;">Searching YouTube...</div>';
-        socket.emit('searchSong', query);
+    // Direct Browser Search via Piped/Invidious (No Host IP Blocking)
+    async function searchSong() {
+      const query = document.getElementById('searchInput').value.trim();
+      const resultsDiv = document.getElementById('results');
+      if (!query) return;
+
+      resultsDiv.innerHTML = '<div style="font-size:0.8rem; color:#94a3b8;">Searching YouTube...</div>';
+
+      const endpoints = [
+        `https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(query)}&filter=videos`,
+        `https://inv.tux.im/api/v1/search?q=${encodeURIComponent(query)}&type=video`,
+        `https://invidious.nerdvpn.de/api/v1/search?q=${encodeURIComponent(query)}&type=video`
+      ];
+
+      let results = [];
+
+      for (const url of endpoints) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) continue;
+          const data = await res.json();
+
+          if (data.items) {
+            results = data.items.slice(0, 5).map(v => ({
+              id: v.url.split('v=')[1] || v.url.replace('/watch?v=', ''),
+              title: v.title,
+              thumbnail: v.thumbnail
+            }));
+          } else if (Array.isArray(data)) {
+            results = data.slice(0, 5).map(v => ({
+              id: v.videoId,
+              title: v.title,
+              thumbnail: `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`
+            }));
+          }
+
+          if (results.length > 0) break;
+        } catch (e) {
+          console.warn('Endpoint failed, trying next...');
+        }
       }
+
+      renderSearchResults(results);
+    }
+
+    function renderSearchResults(results) {
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '';
+
+      if (!results || results.length === 0) {
+        resultsDiv.innerHTML = '<div style="font-size:0.8rem; color:#ef4444;">No songs found. Try a different query.</div>';
+        return;
+      }
+
+      results.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'result-item';
+        div.innerHTML = `
+          <img src="${item.thumbnail}">
+          <div class="title">${item.title}</div>
+        `;
+        div.onclick = () => {
+          socket.emit('addSong', { id: item.id, title: item.title, userName: userName });
+          saveToHistory(item);
+          resultsDiv.innerHTML = '<div style="font-size:0.8rem; color:#22c55e;">✓ Added to queue!</div>';
+          document.getElementById('searchInput').value = '';
+          setTimeout(() => { resultsDiv.innerHTML = ''; }, 2000);
+        };
+        resultsDiv.appendChild(div);
+      });
     }
 
     function sendSound(sound) { socket.emit('playSound', sound); }
@@ -200,33 +263,6 @@
     function playSong() { socket.emit('playSong'); }
     function pauseSong() { socket.emit('pauseSong'); }
     function skipSong() { socket.emit('nextSong'); }
-
-    socket.on('searchResults', (results) => {
-      const resultsDiv = document.getElementById('results');
-      resultsDiv.innerHTML = '';
-      if (!results || results.length === 0) {
-        resultsDiv.innerHTML = '<div style="font-size:0.8rem; color:#ef4444;">No songs found.</div>';
-        return;
-      }
-
-      results.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'result-item';
-        div.innerHTML = `
-          <img src="${item.thumbnail}">
-          <div class="title">${item.title}</div>
-        `;
-        div.onclick = () => {
-          // Instant queue submission passing title + id directly
-          socket.emit('addSong', { input: item.id, title: item.title, userName: userName });
-          saveToHistory(item);
-          resultsDiv.innerHTML = '<div style="font-size:0.8rem; color:#22c55e;">✓ Added to queue & history!</div>';
-          document.getElementById('searchInput').value = '';
-          setTimeout(() => { resultsDiv.innerHTML = ''; }, 2000);
-        };
-        resultsDiv.appendChild(div);
-      });
-    });
 
     function removeSong(index) { socket.emit('removeSong', index); }
     function moveSong(fromIndex, toIndex) { socket.emit('reorderQueue', { fromIndex, toIndex }); }

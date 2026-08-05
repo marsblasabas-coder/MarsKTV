@@ -17,64 +17,6 @@ function getRoom(roomCode) {
   return rooms[roomCode];
 }
 
-// Multi-Mirror YouTube Search Function
-async function searchYouTube(query) {
-  const cleanQuery = encodeURIComponent(query.trim());
-  
-  // Provider 1: Piped API Primary Mirror
-  try {
-    const res = await fetch(`https://pipedapi.kavin.rocks/search?q=${cleanQuery}&filter=videos`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.items && data.items.length > 0) {
-        return data.items.slice(0, 5).map(v => ({
-          id: v.url.split('v=')[1] || v.url.replace('/watch?v=', ''),
-          title: v.title,
-          thumbnail: v.thumbnail
-        }));
-      }
-    }
-  } catch (err) {
-    console.warn('Primary Piped API failed, switching to backup 1...');
-  }
-
-  // Provider 2: Secondary Invidious Instance
-  try {
-    const res = await fetch(`https://inv.tux.im/api/v1/search?q=${cleanQuery}&type=video`);
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        return data.slice(0, 5).map(v => ({
-          id: v.videoId,
-          title: v.title,
-          thumbnail: `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`
-        }));
-      }
-    }
-  } catch (err) {
-    console.warn('Invidious tux.im failed, switching to backup 2...');
-  }
-
-  // Provider 3: Fallback Public Invidious Instance
-  try {
-    const res = await fetch(`https://invidious.nerdvpn.de/api/v1/search?q=${cleanQuery}&type=video`);
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        return data.slice(0, 5).map(v => ({
-          id: v.videoId,
-          title: v.title,
-          thumbnail: `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`
-        }));
-      }
-    }
-  } catch (err) {
-    console.error('All search mirrors failed:', err);
-  }
-
-  return [];
-}
-
 io.on('connection', (socket) => {
   let currentRoom = null;
 
@@ -86,31 +28,13 @@ io.on('connection', (socket) => {
     io.to(currentRoom).emit('updateQueue', room.queue);
   });
 
-  socket.on('searchSong', async (query) => {
-    if (!query || !query.trim()) return socket.emit('searchResults', []);
-    const results = await searchYouTube(query);
-    socket.emit('searchResults', results);
-  });
-
-  socket.on('addSong', async (data) => {
+  socket.on('addSong', (data) => {
     if (!currentRoom) return;
     const room = getRoom(currentRoom);
-    
-    let songId = data.input;
-    let songTitle = data.title || "Unknown Song";
-
-    // If only text was sent without a direct title or 11-char video ID
-    if (!data.title && typeof data.input === 'string' && data.input.length !== 11) {
-      const results = await searchYouTube(data.input);
-      if (results.length > 0) {
-        songId = results[0].id;
-        songTitle = results[0].title;
-      }
-    }
 
     room.queue.push({
-      id: songId,
-      title: songTitle,
+      id: data.id || data.input,
+      title: data.title || "Unknown Song",
       user: data.userName || 'Guest'
     });
 

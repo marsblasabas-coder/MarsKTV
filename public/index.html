@@ -34,10 +34,10 @@
 
     /* Video Stage & Player */
     .stage { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; background: #000; overflow: hidden; }
-    #player { width: 100%; height: 100%; border: none; }
+    #player { width: 100%; height: 100%; border: none; display: none; }
 
     /* Dark Idle Visualizer Screen */
-    #idleOverlay { position: absolute; inset: 0; background: radial-gradient(circle at center, #0f172a 0%, #030712 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; z-index: 10; text-align: center; padding: 20px; }
+    #idleOverlay { position: absolute; inset: 0; background: radial-gradient(circle at center, #0f172a 0%, #030712 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; z-index: 50; text-align: center; padding: 20px; }
     .idle-title { font-size: 2.8rem; font-weight: 900; color: #f8fafc; letter-spacing: -0.5px; }
     .idle-subtitle { color: #94a3b8; font-size: 1.2rem; max-width: 600px; line-height: 1.5; }
     .qr-card { background: #ffffff; padding: 20px; border-radius: 24px; box-shadow: 0 0 50px rgba(244, 63, 94, 0.25); border: 4px solid #f43f5e; }
@@ -63,7 +63,7 @@
       box-shadow: 0 10px 30px rgba(0,0,0,0.8);
       backdrop-filter: blur(10px);
       transition: right 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      z-index: 30;
+      z-index: 60;
       pointer-events: none;
     }
     #upNextBanner.slide-in { right: 0; }
@@ -157,7 +157,6 @@
   new QRCode(document.getElementById("mainQrCode"), { text: remoteUrl, width: 200, height: 200 });
   new QRCode(document.getElementById("miniQrCode"), { text: remoteUrl, width: 50, height: 50 });
 
-  // Web Audio Context initialization
   function enableAudioAndStart() {
     document.getElementById('startOverlay').style.display = 'none';
     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -170,7 +169,6 @@
     }
   }
 
-  // Cross-browser Fullscreen toggle and button text handler
   function toggleFullscreen() {
     const doc = document;
     const docEl = doc.documentElement;
@@ -224,7 +222,6 @@
     });
   }
 
-  // Time Monitor: Checks video time to trigger Up Next banner 30s before end
   setInterval(() => {
     if (player && player.getCurrentTime && player.getDuration) {
       const currentTime = player.getCurrentTime();
@@ -256,10 +253,12 @@
 
     const container = document.getElementById('mainContainer');
     const idleOverlay = document.getElementById('idleOverlay');
+    const playerFrame = document.querySelector('iframe#player') || document.getElementById('player');
 
     if (queue.length > 0) {
       container.classList.remove('idle-active');
       idleOverlay.style.display = 'none';
+      if (playerFrame) playerFrame.style.display = 'block';
 
       const currentVideoId = queue[0].id;
       if (isPlayerReady && player && player.loadVideoById) {
@@ -270,11 +269,11 @@
     } else {
       container.classList.add('idle-active');
       idleOverlay.style.display = 'flex';
+      if (playerFrame) playerFrame.style.display = 'none';
       if (isPlayerReady && player && player.stopVideo) player.stopVideo();
     }
   });
 
-  // Single-item Marquee Ticker update (no duplication, reverts after 30 seconds)
   socket.on('tickerUpdated', (text) => {
     const tickerContainer = document.getElementById('tickerContent');
     if (!tickerContainer) return;
@@ -288,7 +287,6 @@
     }, 30000);
   });
 
-  // Upgraded High-Volume Synth SFX Engine
   socket.on('playSound', (sound) => {
     if (!audioCtx) {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -385,7 +383,6 @@
         src.start(hitTime);
       }
 
-      // Finale Cymbal Crash
       const crashTime = now + rollDuration;
       const crashBuf = audioCtx.createBuffer(1, audioCtx.sampleRate * 1.8, audioCtx.sampleRate);
       const crashData = crashBuf.getChannelData(0);
@@ -439,7 +436,6 @@
     }
   });
 
-  // Floating Emoji Reaction Handler
   socket.on('triggerEmoji', (emoji) => {
     const container = document.getElementById('emojiContainer');
     for (let i = 0; i < 5; i++) {

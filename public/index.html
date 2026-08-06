@@ -10,7 +10,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, sans-serif; background-color: #080d19; color: #ffffff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
-    /* Exact Header Layout */
+    /* Header Layout */
     .navbar {
       height: 60px;
       padding: 0 24px;
@@ -163,6 +163,7 @@
     const socket = io();
     let player;
     let isPlayerReady = false;
+    let currentVideoId = null;
 
     // Clock Execution Logic
     function startLiveClock() {
@@ -189,11 +190,25 @@
     // YouTube Player Initialization
     function onYouTubeIframeAPIReady() {
       player = new YT.Player('player', {
-        playerVars: { 'autoplay': 1, 'controls': 1 },
+        playerVars: { 
+          'autoplay': 1, 
+          'controls': 1,
+          'enablejsapi': 1,
+          'origin': window.location.origin 
+        },
         events: {
-          'onReady': () => { isPlayerReady = true; },
+          'onReady': (event) => { 
+            isPlayerReady = true; 
+            if (window.pendingSongId) {
+              player.loadVideoById(window.pendingSongId);
+              window.pendingSongId = null;
+            }
+          },
           'onStateChange': (e) => {
-            if (e.data === YT.PlayerState.ENDED) socket.emit('nextSong');
+            if (e.data === YT.PlayerState.ENDED) {
+              currentVideoId = null;
+              socket.emit('nextSong');
+            }
           }
         }
       });
@@ -232,20 +247,30 @@
         singerActivity.textContent = "♪ Now singing: Guest";
         queueList.className = "empty-queue";
         queueList.textContent = "No songs queued yet";
+        currentVideoId = null;
+        if (isPlayerReady && player.stopVideo) {
+          player.stopVideo();
+        }
         return;
       }
 
-      npTitle.textContent = queue[0].title;
-      npUser.textContent = queue[0].user || 'Guest';
-      singerActivity.textContent = `♪ Now singing: ${queue[0].user || 'Guest'}`;
+      // Update Currently Playing Info UI
+      const currentSong = queue[0];
+      npTitle.textContent = currentSong.title;
+      npUser.textContent = currentSong.user || 'Guest';
+      singerActivity.textContent = `♪ Now singing: ${currentSong.user || 'Guest'}`;
 
-      if (isPlayerReady && queue[0]) {
-        const currentData = player.getVideoData();
-        if (!currentData || currentData.video_id !== queue[0].id) {
-          player.loadVideoById(queue[0].id);
+      // Autoplay Next Song Fix
+      if (currentSong.id !== currentVideoId) {
+        currentVideoId = currentSong.id;
+        if (isPlayerReady) {
+          player.loadVideoById(currentSong.id);
+        } else {
+          window.pendingSongId = currentSong.id;
         }
       }
 
+      // Render Upcoming List
       const upcoming = queue.slice(1);
       if (upcoming.length === 0) {
         queueList.className = "empty-queue";

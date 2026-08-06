@@ -22,7 +22,7 @@
     .search-box button { background: #f43f5e; color: #fff; border: none; padding: 0 18px; border-radius: 10px; font-weight: 700; cursor: pointer; }
 
     .nav-tabs { display: flex; gap: 8px; border-bottom: 1px solid #334155; margin-bottom: 16px; }
-    .tab-btn { flex: 1; padding: 10px; background: none; border: none; color: #94a3b8; font-weight: 700; font-size: 0.9rem; border-bottom: 2px solid transparent; cursor: pointer; }
+    .tab-btn { flex: 1; padding: 10px; background: none; border: none; color: #94a3b8; font-weight: 700; font-size: 0.85rem; border-bottom: 2px solid transparent; cursor: pointer; }
     .tab-btn.active { color: #f43f5e; border-bottom-color: #f43f5e; }
 
     .view-section { display: none; }
@@ -63,6 +63,7 @@
     <input type="text" id="userName" placeholder="Your Name (e.g. Alex)" maxlength="15">
   </div>
 
+  <!-- Emoji Section -->
   <div class="emoji-section">
     <div class="emoji-label">Send Reaction to TV</div>
     <div class="emoji-bar">
@@ -78,6 +79,7 @@
     <button class="tab-btn active" onclick="switchTab('search')">Search Songs</button>
     <button class="tab-btn" onclick="switchTab('queue')">Queue (<span id="queueCount">0</span>)</button>
     <button class="tab-btn" onclick="switchTab('fx')">SFX Board</button>
+    <button class="tab-btn" onclick="switchTab('ticker')">Marquee</button>
   </div>
 
   <!-- Search Tab -->
@@ -106,7 +108,16 @@
     </div>
   </div>
 
-  <!-- Fixed Bottom Bar -->
+  <!-- Marquee Text Tab -->
+  <div id="tickerView" class="view-section">
+    <div style="background: #1e293b; padding: 16px; border-radius: 12px;">
+      <div style="font-size: 0.85rem; font-weight: 700; color: #f43f5e; margin-bottom: 8px;">UPDATE TV BOTTOM TICKER</div>
+      <input type="text" id="tickerInput" placeholder="Type banner text..." style="width: 100%; padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #fff; margin-bottom: 12px;">
+      <button onclick="updateTickerText()" style="width: 100%; padding: 12px; background: #f43f5e; border: none; color: #fff; font-weight: 800; border-radius: 8px; cursor: pointer;">Broadcast to TV 📢</button>
+    </div>
+  </div>
+
+  <!-- Playback Control Footer -->
   <div class="playback-bar">
     <div>
       <div style="font-size: 0.7rem; color: #94a3b8; font-weight: 700;">NOW PLAYING</div>
@@ -136,6 +147,9 @@
     } else if (tabName === 'fx') {
       document.querySelectorAll('.tab-btn')[2].classList.add('active');
       document.getElementById('fxView').classList.add('active');
+    } else if (tabName === 'ticker') {
+      document.querySelectorAll('.tab-btn')[3].classList.add('active');
+      document.getElementById('tickerView').classList.add('active');
     }
   }
 
@@ -177,7 +191,6 @@
     const userName = document.getElementById('userName').value.trim() || 'Guest';
     socket.emit('addSong', { input: videoId, userName: userName });
 
-    // Immediate Visual Feedback on Remote
     if (btn) {
       btn.textContent = 'Added ✓';
       btn.classList.add('added');
@@ -220,6 +233,13 @@
       queueList.appendChild(card);
     });
   });
+
+  function updateTickerText() {
+    const text = document.getElementById('tickerInput').value.trim();
+    if (!text) return;
+    socket.emit('updateTicker', text);
+    alert('Banner text sent to TV!');
+  }
 
   function skipSong() { socket.emit('nextSong'); }
   function removeSong(index) { socket.emit('removeSong', index); }

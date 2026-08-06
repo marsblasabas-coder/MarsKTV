@@ -220,6 +220,14 @@
               currentVideoId = null;
               socket.emit('nextSong');
             }
+          },
+          'onError': (e) => {
+            console.warn('YouTube Player Error:', e.data);
+            // Catch unembeddable or missing videos (100, 101, 150) and auto-skip to next
+            if (e.data === 101 || e.data === 150 || e.data === 100) {
+              currentVideoId = null;
+              socket.emit('nextSong');
+            }
           }
         }
       });

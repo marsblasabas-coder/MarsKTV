@@ -11,11 +11,11 @@ const io = new Server(server);
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, 'public')));
 
-// In-memory queue state: { 'ROOM-1234': [ { id, title, user } ] }
+// In-memory queue state per room: { 'ROOM-1234': [ { id, title, user } ] }
 const rooms = {};
 
 io.on('connection', (socket) => {
-  // Join Room
+  // Join KTV Room
   socket.on('joinRoom', (roomCode) => {
     socket.join(roomCode);
     socket.roomCode = roomCode;
@@ -96,21 +96,25 @@ io.on('connection', (socket) => {
   });
 
   // Relay Sound Effects
-  socket.on('playSound', (soundName) => {
-    if (socket.roomCode) {
-      io.to(socket.roomCode).emit('playSound', soundName);
+  socket.on('playSound', (data) => {
+    const room = socket.roomCode || (typeof data === 'object' ? data.roomCode : null);
+    const sound = typeof data === 'object' ? data.sound : data;
+    if (room && sound) {
+      io.to(room).emit('playSound', sound);
     }
   });
 
   // Relay Floating Emojis
-  socket.on('sendEmoji', (emoji) => {
-    if (socket.roomCode) {
-      io.to(socket.roomCode).emit('triggerEmoji', emoji);
+  socket.on('sendEmoji', (data) => {
+    const room = socket.roomCode || (typeof data === 'object' ? data.roomCode : null);
+    const emoji = typeof data === 'object' ? data.emoji : data;
+    if (room && emoji) {
+      io.to(room).emit('triggerEmoji', emoji);
     }
   });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`🎙️ Mars KTV Server is running on port ${PORT}`);
+  console.log(`🎙️ Mars KTV Server running on port ${PORT}`);
 });

@@ -9,40 +9,46 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background-color: #050811; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; height: 100vh; width: 100vw; }
+    body { background-color: #030712; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; height: 100vh; width: 100vw; }
 
-    #mainContainer { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; }
-    #mainContainer.idle-active { background: radial-gradient(circle at center, #1e1b4b 0%, #090d16 100%); }
+    #mainContainer { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; background: #030712; }
+    #mainContainer.idle-active { background: radial-gradient(circle at center, #111827 0%, #030712 100%); }
 
     /* Browser Autoplay Permission Overlay */
-    #startOverlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(8, 13, 25, 0.95); z-index: 99999; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; }
-    #startOverlay h1 { font-size: 2.5rem; color: #f43f5e; margin-bottom: 10px; }
-    #startOverlay p { font-size: 1.2rem; color: #94a3b8; }
+    #startOverlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(3, 7, 18, 0.98); z-index: 99999; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; text-align: center; padding: 20px; }
+    #startOverlay h1 { font-size: 2.8rem; color: #f43f5e; margin-bottom: 12px; font-weight: 800; }
+    #startOverlay p { font-size: 1.25rem; color: #9ca3af; }
 
     /* Top Header Bar */
-    header { height: 80px; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); display: flex; justify-content: space-between; align-items: center; padding: 0 25px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); z-index: 20; }
+    header { height: 80px; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); display: flex; justify-content: space-between; align-items: center; padding: 0 25px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); z-index: 20; }
     .brand { font-size: 1.4rem; font-weight: 800; color: #f43f5e; display: flex; align-items: center; gap: 10px; }
     .header-center { display: flex; align-items: center; gap: 15px; }
-    .room-badge { background: #3b82f6; color: #fff; padding: 6px 14px; border-radius: 20px; font-weight: 800; font-size: 1rem; }
+    .room-badge { background: #2563eb; color: #fff; padding: 6px 16px; border-radius: 20px; font-weight: 800; font-size: 1rem; letter-spacing: 0.5px; }
     #miniQrCode { background: #fff; padding: 4px; border-radius: 6px; display: flex; align-items: center; }
     .header-right { display: flex; align-items: center; gap: 15px; }
     
     /* Fullscreen & Clock Styling */
-    .btn-fullscreen { background: #1e293b; border: 1px solid #334155; color: #f8fafc; padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: background 0.2s; min-width: 130px; text-align: center; }
-    .btn-fullscreen:hover { background: #334155; }
+    .btn-fullscreen { background: #1e293b; border: 1px solid #334155; color: #f8fafc; padding: 10px 16px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s ease; min-width: 140px; text-align: center; }
+    .btn-fullscreen:hover { background: #334155; border-color: #475569; }
     #clock { font-size: 0.95rem; color: #94a3b8; font-weight: 600; min-width: 90px; text-align: right; }
 
     /* Video Stage & Player */
-    .stage { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; }
+    .stage { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; background: #000; overflow: hidden; }
     #player { width: 100%; height: 100%; border: none; }
 
-    /* Idle Screensaver Overlay */
-    #idleOverlay { position: absolute; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 20px; z-index: 5; }
-    #mainQrCode { padding: 16px; background: #fff; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    /* Dark Idle Visualizer Screen */
+    #idleOverlay { position: absolute; inset: 0; background: radial-gradient(circle at center, #0f172a 0%, #030712 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; z-index: 10; text-align: center; padding: 20px; }
+    .idle-title { font-size: 2.8rem; font-weight: 900; color: #f8fafc; letter-spacing: -0.5px; }
+    .idle-subtitle { color: #94a3b8; font-size: 1.2rem; max-width: 600px; line-height: 1.5; }
+    .qr-card { background: #ffffff; padding: 20px; border-radius: 24px; box-shadow: 0 0 50px rgba(244, 63, 94, 0.25); border: 4px solid #f43f5e; }
+    
+    .instruction-steps { display: flex; gap: 30px; margin-top: 10px; }
+    .step-box { background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); padding: 12px 20px; border-radius: 12px; font-size: 0.95rem; color: #cbd5e1; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+    .step-num { background: #f43f5e; color: #fff; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; }
 
     /* Floating Emoji Animation */
-    #emojiContainer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; overflow: hidden; }
-    .floating-emoji { position: absolute; font-size: 3.5rem; user-select: none; animation: floatUp 3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6)); }
+    #emojiContainer { position: absolute; inset: 0; pointer-events: none; z-index: 9999; overflow: hidden; }
+    .floating-emoji { position: absolute; font-size: 3.5rem; user-select: none; animation: floatUp 3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.8)); }
     @keyframes floatUp { 0% { transform: translateY(100vh) scale(0.5) rotate(0deg); opacity: 0; } 15% { opacity: 1; transform: translateY(80vh) scale(1.2) rotate(-10deg); } 80% { opacity: 0.9; } 100% { transform: translateY(-10vh) scale(1) rotate(15deg); opacity: 0; } }
 
     /* Up Next 30-Second slide-in banner */
@@ -54,8 +60,8 @@
       border-left: 5px solid #f43f5e;
       padding: 16px 24px;
       border-radius: 12px 0 0 12px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      backdrop-filter: blur(10px);
       transition: right 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       z-index: 30;
       pointer-events: none;
@@ -66,17 +72,18 @@
     .banner-user { font-size: 0.85rem; color: #94a3b8; margin-top: 2px; }
 
     /* Bottom Ticker Marquee */
-    .ticker-wrap { height: 40px; background: #020617; border-top: 1px solid rgba(255, 255, 255, 0.1); overflow: hidden; white-space: nowrap; z-index: 10; }
+    .ticker-wrap { height: 44px; background: #020617; border-top: 1px solid rgba(255, 255, 255, 0.1); overflow: hidden; white-space: nowrap; z-index: 20; }
     .ticker-move { display: inline-block; white-space: nowrap; padding-left: 100%; animation: ticker 25s linear infinite; }
-    .ticker-item { display: inline-block; padding: 0 2rem; font-size: 0.95rem; color: #e2e8f0; font-weight: 600; line-height: 40px; }
+    .ticker-item { display: inline-block; padding: 0 2rem; font-size: 1rem; color: #f1f5f9; font-weight: 600; line-height: 44px; }
     @keyframes ticker { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
   </style>
 </head>
 <body>
 
+<!-- Global Click-to-Start Autoplay Fix -->
 <div id="startOverlay" onclick="enableAudioAndStart()">
   <h1>🎙️ Click Anywhere to Start KTV Monitor</h1>
-  <p>Enables unmuted audio & video playback</p>
+  <p>Enables unmuted video playback & sound effects engine</p>
 </div>
 
 <div id="mainContainer" class="idle-active">
@@ -95,12 +102,21 @@
   <div class="stage">
     <div id="player"></div>
 
+    <!-- Dark Idle Screen Visualizer -->
     <div id="idleOverlay">
-      <h1 style="font-size: 2.5rem; font-weight: 800;">Scan to Join KTV Room</h1>
-      <div id="mainQrCode"></div>
-      <p style="color: #94a3b8; font-size: 1.1rem;">Scan with your mobile camera to pick songs</p>
+      <div class="idle-title">🎵 No Songs in Queue</div>
+      <div class="idle-subtitle">Scan the QR code below on your phone to select and queue your favorite songs!</div>
+      <div class="qr-card">
+        <div id="mainQrCode"></div>
+      </div>
+      <div class="instruction-steps">
+        <div class="step-box"><span class="step-num">1</span> Scan QR with phone</div>
+        <div class="step-box"><span class="step-num">2</span> Search YouTube songs</div>
+        <div class="step-box"><span class="step-num">3</span> Tap + Add to queue</div>
+      </div>
     </div>
 
+    <!-- 30-Second Up Next Popup -->
     <div id="upNextBanner">
       <div class="banner-tag">⏭️ Get Ready - Up Next</div>
       <div id="upNextTitle" class="banner-title">Song Title</div>
@@ -126,41 +142,58 @@
   let currentQueue = [];
   let isUpNextTriggered = false;
   let audioCtx = null;
+  let marqueeTimeout = null;
+
+  const defaultMarqueeHTML = `
+    <div class="ticker-item">🌟 Welcome to Mars KTV! Scan the QR Code at the top to start queuing songs from your phone.</div>
+    <div class="ticker-item">🎤 Use your phone remote soundboard and emojis for fun!</div>
+  `;
 
   document.getElementById('roomBadge').textContent = roomCode;
   socket.emit('joinRoom', roomCode);
 
   const remoteUrl = `${window.location.origin}/remote.html?room=${roomCode}`;
 
-  new QRCode(document.getElementById("mainQrCode"), { text: remoteUrl, width: 180, height: 180 });
+  new QRCode(document.getElementById("mainQrCode"), { text: remoteUrl, width: 200, height: 200 });
   new QRCode(document.getElementById("miniQrCode"), { text: remoteUrl, width: 50, height: 50 });
 
-  // Web Audio Context initialization on click
+  // Web Audio Context initialization
   function enableAudioAndStart() {
     document.getElementById('startOverlay').style.display = 'none';
     const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (AudioContext) { audioCtx = new AudioContext(); }
+    if (AudioContext) {
+      audioCtx = new AudioContext();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
     if (isPlayerReady && currentQueue.length > 0 && player && player.playVideo) {
       player.playVideo();
     }
   }
 
-  // Fullscreen state listener and button label toggle
+  // Cross-browser Fullscreen toggle and button text handler
   function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(err => console.log(err));
+    const doc = document;
+    const docEl = doc.documentElement;
+    const requestFS = docEl.requestFullscreen || docEl.webkitRequestFullScreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
+    const cancelFS = doc.exitFullscreen || doc.webkitExitFullscreen || doc.mozCancelFullScreen || doc.msExitFullscreen;
+    const isFS = doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement;
+
+    if (!isFS) {
+      if (requestFS) requestFS.call(docEl).catch(err => console.log(err));
     } else {
-      if (document.exitFullscreen) document.exitFullscreen();
+      if (cancelFS) cancelFS.call(doc);
     }
   }
 
-  document.addEventListener('fullscreenchange', () => {
+  function updateFSButtonText() {
     const fsBtn = document.getElementById('fullscreenBtn');
-    if (document.fullscreenElement) {
-      fsBtn.textContent = '⛶ Exit Fullscreen';
-    } else {
-      fsBtn.textContent = '⛶ Fullscreen';
-    }
+    if (!fsBtn) return;
+    const isFS = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+    fsBtn.textContent = isFS ? '⛶ Exit Fullscreen' : '⛶ Fullscreen';
+  }
+
+  ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(event => {
+    document.addEventListener(event, updateFSButtonText);
   });
 
   function updateClock() {
@@ -191,7 +224,7 @@
     });
   }
 
-  // Time Monitor: Triggers Up Next banner exactly 30s before end
+  // Time Monitor: Checks video time to trigger Up Next banner 30s before end
   setInterval(() => {
     if (player && player.getCurrentTime && player.getDuration) {
       const currentTime = player.getCurrentTime();
@@ -216,7 +249,7 @@
     document.getElementById('upNextBanner').classList.remove('slide-in');
   }
 
-  // Socket Queue Updates
+  // Queue Updates
   socket.on('updateQueue', (queue) => {
     currentQueue = queue;
     hideUpNextBanner();
@@ -241,38 +274,46 @@
     }
   });
 
-  // Dynamic Marquee Ticker listener
+  // Marquee Ticker update (shows broadcasted text for 30s, then reverts to default)
   socket.on('tickerUpdated', (text) => {
     const tickerContainer = document.getElementById('tickerContent');
-    if (tickerContainer) {
-      tickerContainer.innerHTML = `<div class="ticker-item">📢 ${text}</div><div class="ticker-item">📢 ${text}</div>`;
-    }
+    if (!tickerContainer) return;
+
+    tickerContainer.innerHTML = `<div class="ticker-item">📢 ANNOUNCEMENT: ${text}</div><div class="ticker-item">📢 ANNOUNCEMENT: ${text}</div>`;
+
+    if (marqueeTimeout) clearTimeout(marqueeTimeout);
+
+    marqueeTimeout = setTimeout(() => {
+      tickerContainer.innerHTML = defaultMarqueeHTML;
+    }, 30000); // 30 Seconds
   });
 
-  // Web Audio Sound Effects Engine
+  // Synthesized Sound Effects Engine
   socket.on('playSound', (sound) => {
     if (!audioCtx) {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (AudioContext) audioCtx = new AudioContext();
     }
-    if (audioCtx && audioCtx.state === 'suspended') { audioCtx.resume(); }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
     if (!audioCtx) return;
 
     const now = audioCtx.currentTime;
-    
+
     if (sound === 'airhorn') {
       [370, 370, 370, 370, 493.88].forEach((freq, i) => {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(freq, now + i * 0.12);
-        gain.gain.setValueAtTime(0.3, now + i * 0.12);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.12 + 0.1);
+        gain.gain.setValueAtTime(0.4, now + i * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.12 + 0.11);
         osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(now + i * 0.12); osc.stop(now + i * 0.12 + 0.1);
+        osc.start(now + i * 0.12); osc.stop(now + i * 0.12 + 0.11);
       });
     } else if (sound === 'applause' || sound === 'cheer') {
-      const bufferSize = audioCtx.sampleRate * 1.5;
+      const bufferSize = audioCtx.sampleRate * 2.0;
       const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
       const data = buffer.getChannelData(0);
       for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
@@ -280,37 +321,50 @@
       noise.buffer = buffer;
       const filter = audioCtx.createBiquadFilter();
       filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(sound === 'cheer' ? 1200 : 800, now);
-      filter.Q.setValueAtTime(1, now);
+      filter.frequency.setValueAtTime(sound === 'cheer' ? 1400 : 900, now);
+      filter.Q.setValueAtTime(1.2, now);
       const gain = audioCtx.createGain();
-      gain.gain.setValueAtTime(0.4, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 1.5);
+      gain.gain.setValueAtTime(0.5, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 2.0);
       noise.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
       noise.start(now);
     } else if (sound === 'drumroll') {
-      for (let i = 0; i < 20; i++) {
+      for (let i = 0; i < 24; i++) {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        osc.frequency.setValueAtTime(120, now + i * 0.05);
-        gain.gain.setValueAtTime(0.2, now + i * 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.05 + 0.04);
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(130, now + i * 0.04);
+        gain.gain.setValueAtTime(0.3, now + i * 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.04 + 0.035);
         osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(now + i * 0.05); osc.stop(now + i * 0.05 + 0.04);
+        osc.start(now + i * 0.04); osc.stop(now + i * 0.04 + 0.035);
       }
-    } else {
+    } else if (sound === 'laughter' || sound === 'laugh') {
+      for (let i = 0; i < 5; i++) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(450, now + i * 0.2);
+        osc.frequency.exponentialRampToValueAtTime(250, now + i * 0.2 + 0.15);
+        gain.gain.setValueAtTime(0.4, now + i * 0.2);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.2 + 0.15);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now + i * 0.2); osc.stop(now + i * 0.2 + 0.15);
+      }
+    } else if (sound === 'boo') {
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(sound === 'boo' ? 150 : 600, now);
-      osc.frequency.exponentialRampToValueAtTime(sound === 'boo' ? 80 : 300, now + 0.6);
-      gain.gain.setValueAtTime(0.3, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(160, now);
+      osc.frequency.exponentialRampToValueAtTime(80, now + 1.2);
+      gain.gain.setValueAtTime(0.4, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 1.2);
       osc.connect(gain); gain.connect(audioCtx.destination);
-      osc.start(now); osc.stop(now + 0.6);
+      osc.start(now); osc.stop(now + 1.2);
     }
   });
 
-  // Floating Emoji Handler
+  // Floating Emoji Reaction Handler
   socket.on('triggerEmoji', (emoji) => {
     const container = document.getElementById('emojiContainer');
     for (let i = 0; i < 5; i++) {

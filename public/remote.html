@@ -110,9 +110,9 @@
   <!-- Marquee Text View -->
   <div id="tickerView" class="view-section">
     <div style="background: #1e293b; padding: 16px; border-radius: 12px;">
-      <div style="font-size: 0.85rem; font-weight: 700; color: #f43f5e; margin-bottom: 8px;">UPDATE TV BOTTOM MARQUEE</div>
-      <input type="text" id="tickerInput" placeholder="Type marquee announcement..." style="width: 100%; padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #fff; margin-bottom: 12px;">
-      <button onclick="updateTickerText()" style="width: 100%; padding: 12px; background: #f43f5e; border: none; color: #fff; font-weight: 800; border-radius: 8px; cursor: pointer;">Broadcast to TV 📢</button>
+      <div style="font-size: 0.85rem; font-weight: 700; color: #f43f5e; margin-bottom: 8px;">UPDATE TV MARQUEE (30s DISPLAY)</div>
+      <input type="text" id="tickerInput" placeholder="Type announcement..." style="width: 100%; padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #fff; margin-bottom: 12px;">
+      <button onclick="updateTickerText()" style="width: 100%; padding: 12px; background: #f43f5e; border: none; color: #fff; font-weight: 800; border-radius: 8px; cursor: pointer;">Broadcast Announcement 📢</button>
     </div>
   </div>
 
@@ -237,13 +237,14 @@
     const text = document.getElementById('tickerInput').value.trim();
     if (!text) return;
     socket.emit('updateTicker', { roomCode: roomCode, text: text });
-    alert('Marquee announcement sent to TV!');
+    document.getElementById('tickerInput').value = '';
+    alert('Announcement broadcasted to TV for 30 seconds!');
   }
 
   function skipSong() { socket.emit('nextSong'); }
   function removeSong(index) { socket.emit('removeSong', index); }
-  function playSound(soundName) { socket.emit('playSound', soundName); }
-  function sendReaction(emoji) { socket.emit('sendEmoji', emoji); }
+  function playSound(soundName) { socket.emit('playSound', { roomCode: roomCode, sound: soundName }); }
+  function sendReaction(emoji) { socket.emit('sendEmoji', { roomCode: roomCode, emoji: emoji }); }
 </script>
 </body>
 </html>

@@ -43,7 +43,7 @@
       margin-top: -2px;
     }
 
-    /* Dark Outlined Queue Badge Pill */
+    /* Dark Outlined Queue Badge Pill - Pure White Text Label */
     .queue-badge-pill {
       position: absolute;
       left: 50%;
@@ -52,7 +52,7 @@
       border: 1px solid #d97706;
       border-radius: 9999px;
       padding: 6px 22px;
-      color: #93c5fd;
+      color: #ffffff;
       font-size: 0.8rem;
       font-weight: 800;
       letter-spacing: 1px;
@@ -69,16 +69,15 @@
       text-shadow: 0 0 6px rgba(250, 204, 21, 0.6);
     }
 
-    /* Right Side Gold Clock */
+    /* Right Side White Clock */
     .date-time-text {
-      color: #eab308;
-      font-size: 1.15rem;
+      color: #ffffff;
+      font-size: 1.05rem;
       font-weight: 600;
       letter-spacing: 0.5px;
-      text-shadow: 0 0 8px rgba(234, 179, 8, 0.3);
     }
 
-    /* Original Layout Grid & Cards */
+    /* Main Grid & Panels */
     .main-container { display: grid; grid-template-columns: 1fr 320px; gap: 12px; padding: 12px; flex: 1; height: calc(100vh - 60px); }
     .player-section { display: flex; flex-direction: column; gap: 10px; height: 100%; }
     .video-wrapper { position: relative; flex: 1; background: #000; border-radius: 12px; overflow: hidden; border: 1px solid #1e293b; }
@@ -165,13 +164,25 @@
     let isPlayerReady = false;
     let currentVideoId = null;
 
-    // Clock Execution Logic
+    // Clock Execution Logic - Custom Format: "Thur, August 6, 2026 | 10:24:32 AM"
     function startLiveClock() {
       const clockEl = document.getElementById('liveClock');
       function update() {
         const now = new Date();
-        const options = { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
-        clockEl.textContent = now.toLocaleDateString('en-US', options);
+        const dateStr = now.toLocaleDateString('en-US', { 
+          weekday: 'short', 
+          month: 'long', 
+          day: 'numeric', 
+          year: 'numeric' 
+        });
+        const timeStr = now.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit', 
+          second: '2-digit', 
+          hour12: true 
+        });
+
+        clockEl.textContent = `${dateStr}  |  ${timeStr}`;
       }
       update();
       setInterval(update, 1000);

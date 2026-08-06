@@ -9,26 +9,90 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, sans-serif; background-color: #080d19; color: #ffffff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-    .navbar { height: 50px; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; background-color: #0b1329; border-bottom: 1px solid #16213e; }
-    .brand { font-weight: 800; font-size: 1.1rem; color: #fff; }
-    .brand span { color: #ec4899; font-size: 0.7rem; display: block; letter-spacing: 1px; font-weight: 600; }
-    .main-container { display: grid; grid-template-columns: 1fr 320px; grid-template-rows: 1fr auto; gap: 12px; padding: 12px; flex: 1; height: calc(100vh - 50px); }
+
+    /* Exact Header Layout */
+    .navbar {
+      height: 60px;
+      padding: 0 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #080d19;
+      border-bottom: 1px solid #1a233a;
+      position: relative;
+    }
+
+    .brand-container {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand {
+      font-weight: 800;
+      font-size: 1.25rem;
+      color: #ffffff;
+      letter-spacing: 0.5px;
+    }
+
+    .sub-brand {
+      color: #64748b;
+      font-size: 0.65rem;
+      letter-spacing: 1px;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-top: -2px;
+    }
+
+    /* Centered Pill Queue Badge */
+    .queue-badge-pill {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(180deg, #eab308 0%, #ca8a04 100%);
+      border-radius: 20px;
+      padding: 6px 22px;
+      color: #0f172a;
+      font-size: 0.85rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      box-shadow: 0 0 15px rgba(234, 179, 8, 0.35);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Right Side Gold Clock */
+    .date-time-text {
+      color: #eab308;
+      font-size: 1.15rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-shadow: 0 0 8px rgba(234, 179, 8, 0.3);
+    }
+
+    /* Original Layout Grid & Cards */
+    .main-container { display: grid; grid-template-columns: 1fr 320px; gap: 12px; padding: 12px; flex: 1; height: calc(100vh - 60px); }
     .player-section { display: flex; flex-direction: column; gap: 10px; height: 100%; }
     .video-wrapper { position: relative; flex: 1; background: #000; border-radius: 12px; overflow: hidden; border: 1px solid #1e293b; }
     #player { width: 100%; height: 100%; }
+
     .now-playing-bar { background: #0f1a30; border: 1px solid #1e293b; border-radius: 10px; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; }
     .np-tag { color: #ec4899; font-weight: 800; font-size: 0.8rem; margin-right: 8px; }
+
     .sidebar-section { display: flex; flex-direction: column; gap: 10px; height: 100%; }
     .queue-card { flex: 1; background: #0f1a30; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; overflow-y: auto; }
     .card-title { color: #ec4899; font-size: 0.75rem; font-weight: 800; margin-bottom: 12px; }
     .empty-queue { color: #64748b; font-size: 0.85rem; }
     .queue-item { background: #16233d; padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.85rem; color: #cbd5e1; }
+
     .singers-card { background: #0f1a30; border: 1px solid #1e293b; border-radius: 12px; padding: 12px; }
     .singer-item { background: #16233d; padding: 8px 12px; border-radius: 20px; font-size: 0.8rem; color: #94a3b8; }
+
     .qr-card { background: #0f1a30; border: 1px solid #1e293b; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 12px; }
     #qrcode { background: #fff; padding: 6px; border-radius: 8px; }
     .qr-info { display: flex; flex-direction: column; gap: 4px; }
     .room-code { font-size: 1.1rem; font-weight: 800; color: #fff; }
+
     .toast-overlay { position: absolute; top: 20px; right: 20px; background: rgba(236, 72, 153, 0.9); color: white; padding: 12px 24px; border-radius: 30px; font-weight: bold; font-size: 1.2rem; display: none; z-index: 100; }
   </style>
 </head>
@@ -36,10 +100,21 @@
 
   <div id="reactionToast" class="toast-overlay"></div>
 
+  <!-- Header Bar -->
   <div class="navbar">
-    <div class="brand">SingRoom KTV <span>KARAOKE TOGETHER</span></div>
+    <div class="brand-container">
+      <div class="brand">SingRoom KTV</div>
+      <div class="sub-brand">KARAOKE TOGETHER</div>
+    </div>
+
+    <div class="queue-badge-pill">
+      TOTAL IN QUEUE: <span id="queue-count-display">0</span>
+    </div>
+
+    <div id="liveClock" class="date-time-text">--:--:--</div>
   </div>
 
+  <!-- Main Body Content -->
   <div class="main-container">
     <div class="player-section">
       <div class="video-wrapper">
@@ -81,14 +156,29 @@
     let player;
     let isPlayerReady = false;
 
+    // Clock Execution Logic
+    function startLiveClock() {
+      const clockEl = document.getElementById('liveClock');
+      function update() {
+        const now = new Date();
+        const options = { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+        clockEl.textContent = now.toLocaleDateString('en-US', options);
+      }
+      update();
+      setInterval(update, 1000);
+    }
+    document.addEventListener('DOMContentLoaded', startLiveClock);
+
+    // Room ID Setup
     const roomCode = 'ROOM-' + Math.floor(1000 + Math.random() * 9000);
     document.getElementById("roomDisplay").textContent = roomCode;
-
     socket.emit('joinRoom', roomCode);
 
+    // QR Code Generator
     const mobileUrl = `${window.location.protocol}//${window.location.host}/remote.html?room=${roomCode}`;
     new QRCode(document.getElementById("qrcode"), { text: mobileUrl, width: 70, height: 70 });
 
+    // YouTube Player Initialization
     function onYouTubeIframeAPIReady() {
       player = new YT.Player('player', {
         playerVars: { 'autoplay': 1, 'controls': 1 },
@@ -101,6 +191,7 @@
       });
     }
 
+    // Reaction Sounds Event
     socket.on('triggerSound', (sound) => {
       const toast = document.getElementById('reactionToast');
       toast.textContent = sound === 'applause' ? "👏 APPLAUSE!" : sound === 'airhorn' ? "📢 AIRHORN!" : "🎉 CHEER!";
@@ -108,18 +199,26 @@
       setTimeout(() => { toast.style.display = 'none'; }, 2000);
     });
 
+    // Remote Volume Sync
     socket.on('updateVolume', (vol) => {
       if (player && player.setVolume) player.setVolume(vol);
     });
 
+    // Queue Listener & Handler
     socket.on('updateQueue', (queue) => {
       const queueList = document.getElementById('queueList');
       const npTitle = document.getElementById('npTitle');
       const npUser = document.getElementById('npUser');
       const singerActivity = document.getElementById('singerActivity');
+      const countEl = document.getElementById('queue-count-display');
+
+      if (countEl) {
+        countEl.textContent = queue ? queue.length : 0;
+      }
+
       queueList.innerHTML = '';
 
-      if (queue.length === 0) {
+      if (!queue || queue.length === 0) {
         npTitle.textContent = "No song playing";
         npUser.textContent = "Guest";
         singerActivity.textContent = "♪ Now singing: Guest";

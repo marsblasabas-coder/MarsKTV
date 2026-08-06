@@ -3,309 +3,393 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mars KTV Room</title>
-  <!-- Microphone Favicon for Browser Tab -->
+  <title>Mars KTV Monitor</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎙️</text></svg>">
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, sans-serif; background-color: #080d19; color: #ffffff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+    body {
+      background-color: #050811;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
 
-    /* Header Layout */
-    .navbar {
-      height: 60px;
-      padding: 0 24px;
+    #mainContainer {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      transition: background 1s ease;
+    }
+
+    #mainContainer.idle-active {
+      background: radial-gradient(circle at center, #1e1b4b 0%, #090d16 100%);
+    }
+
+    /* Start Overlay for Browser Autoplay Permission */
+    #startOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(8, 13, 25, 0.95);
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    #startOverlay h1 { font-size: 2.5rem; color: #f43f5e; margin-bottom: 10px; }
+    #startOverlay p { font-size: 1.2rem; color: #94a3b8; }
+
+    /* Top Header Bar */
+    header {
+      height: 70px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background-color: #080d19;
-      border-bottom: 1px solid #1a233a;
-      position: relative;
+      padding: 0 30px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 10;
     }
 
-    .brand-container {
+    .brand { font-size: 1.5rem; font-weight: 800; color: #f43f5e; display: flex; align-items: center; gap: 10px; }
+    .room-badge { background: #3b82f6; color: #fff; padding: 6px 16px; border-radius: 20px; font-weight: 800; font-size: 1.1rem; }
+    .clock { font-size: 1rem; color: #94a3b8; font-weight: 600; }
+
+    /* Video Stage */
+    .stage {
+      flex: 1;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #player { width: 100%; height: 100%; border: none; }
+
+    /* Idle Overlay Screen Saver */
+    #idleOverlay {
+      position: absolute;
+      text-align: center;
       display: flex;
       flex-direction: column;
-    }
-
-    .brand {
-      font-weight: 800;
-      font-size: 1.25rem;
-      color: #ffffff;
-      letter-spacing: 0.5px;
-    }
-
-    .sub-brand {
-      color: #64748b;
-      font-size: 0.65rem;
-      letter-spacing: 1px;
-      font-weight: 600;
-      text-transform: uppercase;
-      margin-top: -2px;
-    }
-
-    /* Dark Outlined Queue Badge Pill - Pure White Text Label */
-    .queue-badge-pill {
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      background-color: #0c162d;
-      border: 1px solid #d97706;
-      border-radius: 9999px;
-      padding: 6px 22px;
-      color: #ffffff;
-      font-size: 0.8rem;
-      font-weight: 800;
-      letter-spacing: 1px;
-      box-shadow: 0 0 10px rgba(217, 119, 6, 0.3);
-      display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 20px;
+      z-index: 5;
     }
 
-    .queue-badge-pill #queue-count-display {
-      color: #facc15;
-      font-size: 1.1rem;
-      font-weight: 900;
-      text-shadow: 0 0 6px rgba(250, 204, 21, 0.6);
+    #qrcode { padding: 16px; background: #fff; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+
+    /* Up Next Banner */
+    #upNextBanner {
+      position: absolute;
+      top: 20px;
+      right: -400px;
+      background: rgba(15, 23, 42, 0.95);
+      border-left: 5px solid #f43f5e;
+      padding: 15px 25px;
+      border-radius: 8px 0 0 8px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      transition: right 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      z-index: 20;
     }
 
-    /* Right Side White Clock */
-    .date-time-text {
-      color: #ffffff;
-      font-size: 1.05rem;
+    #upNextBanner.slide-in { right: 0; }
+
+    /* Visualizer Bar Container */
+    .visualizer-container {
+      position: absolute;
+      bottom: 40px;
+      left: 0;
+      width: 100%;
+      height: 40px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      gap: 6px;
+      z-index: 15;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+
+    .visualizer-container.active { opacity: 0.7; }
+
+    .bar {
+      width: 8px;
+      background: linear-gradient(to top, #f43f5e, #3b82f6);
+      border-radius: 4px;
+      animation: bounce 0.8s infinite alternate ease-in-out;
+    }
+
+    @keyframes bounce {
+      0% { height: 5px; }
+      100% { height: 35px; }
+    }
+
+    /* Floating Emojis Overlay Container */
+    #emojiContainer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 9999;
+      overflow: hidden;
+    }
+
+    .floating-emoji {
+      position: absolute;
+      font-size: 3.5rem;
+      user-select: none;
+      animation: floatUp 3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6));
+    }
+
+    @keyframes floatUp {
+      0% {
+        transform: translateY(100vh) scale(0.5) rotate(0deg);
+        opacity: 0;
+      }
+      15% {
+        opacity: 1;
+        transform: translateY(80vh) scale(1.2) rotate(-10deg);
+      }
+      80% {
+        opacity: 0.9;
+      }
+      100% {
+        transform: translateY(-10vh) scale(1) rotate(15deg);
+        opacity: 0;
+      }
+    }
+
+    /* Bottom Ticker Marquee */
+    .ticker-wrap {
+      height: 40px;
+      background: #020617;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      overflow: hidden;
+      white-space: nowrap;
+      z-index: 10;
+    }
+
+    .ticker-move {
+      display: inline-block;
+      white-space: nowrap;
+      padding-left: 100%;
+      animation: ticker 25s linear infinite;
+    }
+
+    .ticker-item {
+      display: inline-block;
+      padding: 0 2rem;
+      font-size: 0.95rem;
+      color: #e2e8f0;
       font-weight: 600;
-      letter-spacing: 0.5px;
+      line-height: 40px;
     }
 
-    /* Main Grid & Panels */
-    .main-container { display: grid; grid-template-columns: 1fr 320px; gap: 12px; padding: 12px; flex: 1; height: calc(100vh - 60px); }
-    .player-section { display: flex; flex-direction: column; gap: 10px; height: 100%; }
-    .video-wrapper { position: relative; flex: 1; background: #000; border-radius: 12px; overflow: hidden; border: 1px solid #1e293b; }
-    #player { width: 100%; height: 100%; }
-
-    .now-playing-bar { background: #0f1a30; border: 1px solid #1e293b; border-radius: 10px; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; }
-    .np-tag { color: #ec4899; font-weight: 800; font-size: 0.8rem; margin-right: 8px; }
-
-    .sidebar-section { display: flex; flex-direction: column; gap: 10px; height: 100%; }
-    .queue-card { flex: 1; background: #0f1a30; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; overflow-y: auto; }
-    .card-title { color: #ec4899; font-size: 0.75rem; font-weight: 800; margin-bottom: 12px; }
-    .empty-queue { color: #64748b; font-size: 0.85rem; }
-    .queue-item { background: #16233d; padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.85rem; color: #cbd5e1; }
-
-    .singers-card { background: #0f1a30; border: 1px solid #1e293b; border-radius: 12px; padding: 12px; }
-    .singer-item { background: #16233d; padding: 8px 12px; border-radius: 20px; font-size: 0.8rem; color: #94a3b8; }
-
-    .qr-card { background: #0f1a30; border: 1px solid #1e293b; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 12px; }
-    #qrcode { background: #fff; padding: 6px; border-radius: 8px; }
-    .qr-info { display: flex; flex-direction: column; gap: 4px; }
-    .room-code { font-size: 1.1rem; font-weight: 800; color: #fff; }
-
-    .toast-overlay { position: absolute; top: 20px; right: 20px; background: rgba(236, 72, 153, 0.9); color: white; padding: 12px 24px; border-radius: 30px; font-weight: bold; font-size: 1.2rem; display: none; z-index: 100; }
+    @keyframes ticker {
+      0% { transform: translate3d(0, 0, 0); }
+      100% { transform: translate3d(-100%, 0, 0); }
+    }
   </style>
 </head>
 <body>
 
-  <div id="reactionToast" class="toast-overlay"></div>
+<!-- Initial Click Overlay to enable browser autoplay -->
+<div id="startOverlay" onclick="enableAudioAndStart()">
+  <h1>🎙️ Click Anywhere to Start KTV Display</h1>
+  <p>Enables audio & autoplay for this session</p>
+</div>
 
-  <!-- Header Bar -->
-  <div class="navbar">
-    <div class="brand-container">
-      <div class="brand">Mars KTV Room</div>
-      <div class="sub-brand">KARAOKE TOGETHER</div>
+<div id="mainContainer" class="idle-active">
+  <header>
+    <div class="brand">🎙️ Mars KTV</div>
+    <div id="roomBadge" class="room-badge">ROOM-____</div>
+    <div id="clock" class="clock">--:--:-- --</div>
+  </header>
+
+  <div class="stage">
+    <div id="player"></div>
+
+    <div id="idleOverlay">
+      <h1 style="font-size: 2.5rem; font-weight: 800;">Scan to Join KTV Room</h1>
+      <div id="qrcode"></div>
+      <p style="color: #94a3b8; font-size: 1.1rem;">Scan with your mobile camera to pick songs</p>
     </div>
 
-    <div class="queue-badge-pill">
-      TOTAL IN QUEUE: <span id="queue-count-display">0</span>
+    <div id="upNextBanner">
+      <div style="font-size: 0.75rem; color: #f43f5e; font-weight: 800; letter-spacing: 1px;">UP NEXT</div>
+      <div id="upNextTitle" style="font-size: 1.1rem; font-weight: 700; color: #fff; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Song Title</div>
+      <div id="upNextUser" style="font-size: 0.85rem; color: #94a3b8;">Requested by: Guest</div>
     </div>
 
-    <div id="liveClock" class="date-time-text">--:--:--</div>
+    <div id="visualizer" class="visualizer-container"></div>
+    <div id="emojiContainer"></div>
   </div>
 
-  <!-- Main Body Content -->
-  <div class="main-container">
-    <div class="player-section">
-      <div class="video-wrapper">
-        <div id="player"></div>
-      </div>
-      <div class="now-playing-bar">
-        <div>
-          <span class="np-tag">♪ NOW PLAYING</span>
-          <span id="npTitle" class="np-title">No song playing</span>
-        </div>
-        <div style="color:#64748b; font-size:0.8rem;">Added by <span id="npUser">Guest</span></div>
-      </div>
-    </div>
-
-    <div class="sidebar-section">
-      <div class="queue-card">
-        <div class="card-title">▷ UP NEXT</div>
-        <div id="queueList" class="empty-queue">No songs queued yet</div>
-      </div>
-
-      <div class="singers-card">
-        <div id="singerActivity" class="singer-item">♪ Now singing: Guest</div>
-      </div>
-
-      <div class="qr-card">
-        <div id="qrcode"></div>
-        <div class="qr-info">
-          <div style="font-size:0.8rem; color:#94a3b8;">Scan to Join</div>
-          <div style="font-size:0.65rem; color:#ec4899; font-weight:800;">ROOM CODE</div>
-          <div id="roomDisplay" class="room-code">------</div>
-        </div>
-      </div>
+  <div class="ticker-wrap">
+    <div class="ticker-move">
+      <div class="ticker-item">🌟 Welcome to Mars KTV! Scan the QR Code on screen to start queuing songs from your phone.</div>
+      <div class="ticker-item">🎤 Have fun, cheer on your friends, and enjoy your session!</div>
     </div>
   </div>
+</div>
 
-  <script src="https://www.youtube.com/iframe_api"></script>
-  <script>
-    const socket = io();
-    let player;
-    let isPlayerReady = false;
-    let currentVideoId = null;
+<script>
+  const socket = io();
+  let player;
+  let isPlayerReady = false;
+  let roomCode = 'ROOM-' + Math.floor(1000 + Math.random() * 9000);
+  let currentQueue = [];
+  let isBannerShown = false;
 
-    // Clock Execution Logic - Custom Format: "Thur, August 6, 2026 | 10:24:32 AM"
-    function startLiveClock() {
-      const clockEl = document.getElementById('liveClock');
-      function update() {
-        const now = new Date();
-        const dateStr = now.toLocaleDateString('en-US', { 
-          weekday: 'short', 
-          month: 'long', 
-          day: 'numeric', 
-          year: 'numeric' 
-        });
-        const timeStr = now.toLocaleTimeString('en-US', { 
-          hour: '2-digit', 
-          minute: '2-digit', 
-          second: '2-digit', 
-          hour12: true 
-        });
+  document.getElementById('roomBadge').textContent = roomCode;
+  socket.emit('joinRoom', roomCode);
 
-        clockEl.textContent = `${dateStr}  |  ${timeStr}`;
-      }
-      update();
-      setInterval(update, 1000);
+  new QRCode(document.getElementById("qrcode"), {
+    text: `${window.location.origin}/remote.html?room=${roomCode}`,
+    width: 180,
+    height: 180
+  });
+
+  function enableAudioAndStart() {
+    document.getElementById('startOverlay').style.display = 'none';
+    if (isPlayerReady && currentQueue.length > 0 && player && player.playVideo) {
+      player.playVideo();
     }
-    document.addEventListener('DOMContentLoaded', startLiveClock);
+  }
 
-    // Room ID Setup
-    const roomCode = 'ROOM-' + Math.floor(1000 + Math.random() * 9000);
-    document.getElementById("roomDisplay").textContent = roomCode;
-    socket.emit('joinRoom', roomCode);
+  // Live Clock
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('clock').textContent = now.toLocaleTimeString('en-US');
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
 
-    // QR Code Generator
-    const mobileUrl = `${window.location.protocol}//${window.location.host}/remote.html?room=${roomCode}`;
-    new QRCode(document.getElementById("qrcode"), { text: mobileUrl, width: 70, height: 70 });
+  // Create Visualizer Bars
+  const visContainer = document.getElementById('visualizer');
+  for (let i = 0; i < 24; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    bar.style.animationDelay = `${(i % 5) * 0.15}s`;
+    visContainer.appendChild(bar);
+  }
 
-    // YouTube Player Initialization
-    function onYouTubeIframeAPIReady() {
-      player = new YT.Player('player', {
-        playerVars: { 
-          'autoplay': 1, 
-          'controls': 1,
-          'enablejsapi': 1,
-          'origin': window.location.origin 
-        },
-        events: {
-          'onReady': (event) => { 
-            isPlayerReady = true; 
-            if (window.pendingSongId) {
-              player.loadVideoById(window.pendingSongId);
-              window.pendingSongId = null;
-            }
-          },
-          'onStateChange': (e) => {
-            if (e.data === YT.PlayerState.ENDED) {
-              currentVideoId = null;
-              socket.emit('nextSong');
-            }
-          },
-          'onError': (e) => {
-            console.warn('YouTube Player Error:', e.data);
-            // Catch unembeddable or missing videos (100, 101, 150) and auto-skip to next
-            if (e.data === 101 || e.data === 150 || e.data === 100) {
-              currentVideoId = null;
-              socket.emit('nextSong');
-            }
-          }
-        }
-      });
+  // YouTube IFrame API initialization
+  const tag = document.createElement('script');
+  tag.src = "https://www.youtube.com/iframe_api";
+  const firstScriptTag = document.getElementsByTagName('script')[0];
+  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+  function onYouTubeIframeAPIReady() {
+    player = new YT.Player('player', {
+      height: '100%',
+      width: '100%',
+      playerVars: { 'autoplay': 1, 'controls': 0, 'rel': 0, 'enablejsapi': 1 },
+      events: {
+        'onReady': onPlayerReady,
+        'onStateChange': onPlayerStateChange,
+        'onError': () => socket.emit('nextSong')
+      }
+    });
+  }
+
+  function onPlayerReady() {
+    isPlayerReady = true;
+    if (currentQueue.length > 0) {
+      player.loadVideoById(currentQueue[0].id);
     }
+  }
 
-    // Reaction Sounds Event
-    socket.on('triggerSound', (sound) => {
-      const toast = document.getElementById('reactionToast');
-      toast.textContent = sound === 'applause' ? "👏 APPLAUSE!" : sound === 'airhorn' ? "📢 AIRHORN!" : "🎉 CHEER!";
-      toast.style.display = 'block';
-      setTimeout(() => { toast.style.display = 'none'; }, 2000);
-    });
+  function onPlayerStateChange(event) {
+    if (event.data === YT.PlayerState.ENDED) {
+      socket.emit('nextSong');
+    }
+  }
 
-    // Remote Volume Sync
-    socket.on('updateVolume', (vol) => {
-      if (player && player.setVolume) player.setVolume(vol);
-    });
-
-    // Queue Listener & Handler
-    socket.on('updateQueue', (queue) => {
-      const queueList = document.getElementById('queueList');
-      const npTitle = document.getElementById('npTitle');
-      const npUser = document.getElementById('npUser');
-      const singerActivity = document.getElementById('singerActivity');
-      const countEl = document.getElementById('queue-count-display');
-
-      if (countEl) {
-        countEl.textContent = queue ? queue.length : 0;
+  // Up Next Banner check loop
+  setInterval(() => {
+    if (player && player.getCurrentTime && player.getDuration) {
+      const currentTime = player.getCurrentTime();
+      const duration = player.getDuration();
+      if (duration > 0 && (duration - currentTime <= 30) && currentQueue.length > 1 && !isBannerShown) {
+        showUpNext(currentQueue[1]);
       }
+    }
+  }, 1000);
 
-      queueList.innerHTML = '';
+  function showUpNext(nextSong) {
+    isBannerShown = true;
+    document.getElementById('upNextTitle').textContent = nextSong.title;
+    document.getElementById('upNextUser').textContent = `Requested by: ${nextSong.user}`;
+    const banner = document.getElementById('upNextBanner');
+    banner.classList.add('slide-in');
+    setTimeout(() => {
+      banner.classList.remove('slide-in');
+    }, 8000);
+  }
 
-      if (!queue || queue.length === 0) {
-        npTitle.textContent = "No song playing";
-        npUser.textContent = "Guest";
-        singerActivity.textContent = "♪ Now singing: Guest";
-        queueList.className = "empty-queue";
-        queueList.textContent = "No songs queued yet";
-        currentVideoId = null;
-        if (isPlayerReady && player.stopVideo) {
-          player.stopVideo();
-        }
-        return;
-      }
+  // Handle Socket Queue Updates
+  socket.on('updateQueue', (queue) => {
+    currentQueue = queue;
+    isBannerShown = false;
+    document.getElementById('upNextBanner').classList.remove('slide-in');
 
-      // Update Currently Playing Info UI
-      const currentSong = queue[0];
-      npTitle.textContent = currentSong.title;
-      npUser.textContent = currentSong.user || 'Guest';
-      singerActivity.textContent = `♪ Now singing: ${currentSong.user || 'Guest'}`;
+    const container = document.getElementById('mainContainer');
+    const idleOverlay = document.getElementById('idleOverlay');
 
-      // Autoplay Next Song Fix
-      if (currentSong.id !== currentVideoId) {
-        currentVideoId = currentSong.id;
-        if (isPlayerReady) {
-          player.loadVideoById(currentSong.id);
-        } else {
-          window.pendingSongId = currentSong.id;
+    if (queue.length > 0) {
+      container.classList.remove('idle-active');
+      idleOverlay.style.display = 'none';
+      visContainer.classList.add('active');
+
+      const currentVideoId = queue[0].id;
+      if (isPlayerReady && player && player.loadVideoById) {
+        if (player.getVideoData && player.getVideoData()['video_id'] !== currentVideoId) {
+          player.loadVideoById(currentVideoId);
         }
       }
+    } else {
+      container.classList.add('idle-active');
+      idleOverlay.style.display = 'flex';
+      visContainer.classList.remove('active');
+      if (isPlayerReady && player && player.stopVideo) player.stopVideo();
+    }
+  });
 
-      // Render Upcoming List
-      const upcoming = queue.slice(1);
-      if (upcoming.length === 0) {
-        queueList.className = "empty-queue";
-        queueList.textContent = "No songs queued yet";
-      } else {
-        queueList.className = "";
-        upcoming.forEach((song) => {
-          const item = document.createElement('div');
-          item.className = 'queue-item';
-          item.textContent = `${song.title} (${song.user})`;
-          queueList.appendChild(item);
-        });
-      }
-    });
-  </script>
+  // HD Floating Emoji Animation Handler
+  socket.on('triggerEmoji', (emoji) => {
+    const container = document.getElementById('emojiContainer');
+    for (let i = 0; i < 5; i++) {
+      setTimeout(() => {
+        const el = document.createElement('div');
+        el.className = 'floating-emoji';
+        el.textContent = emoji;
+        el.style.left = Math.floor(Math.random() * 85 + 5) + '%';
+        container.appendChild(el);
+
+        setTimeout(() => {
+          el.remove();
+        }, 3000);
+      }, i * 200);
+    }
+  });
+</script>
 </body>
 </html>

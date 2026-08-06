@@ -1,194 +1,116 @@
 const express = require('express');
-const app = express();
-const http = require('http').createServer(app);
-const io = require('socket.io')(http, {
-  cors: { origin: "*", methods: ["GET", "POST"] }
-});
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
 const yts = require('yt-search');
 
-app.use(express.static('public'));
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
 
-const roomQueues = {};
+// Serve static frontend files
+app.use(express.static(path.join(__dirname, 'public')));
 
-function extractVideoId(input) {
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-  const match = input.match(regExp);
-  return (match && match[2].length === 11) ? match[2] : input.trim();
-}
-
-async function fetchVideoTitle(videoId) {
-  try {
-    const response = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
-    if (!response.ok) throw new Error('Failed to fetch');
-    const data = await response.json();
-    return data.title;
-  } catch (error) {
-    return `Song (${videoId})`;
-  }
-}
-
-async function searchYouTube(query) {
-  try {
-    const searchResults = await yts(query + " karaoke");
-    return searchResults.videos.slice(0, 8).map((video) => ({
-      id: video.videoId,
-      title: video.title,
-      thumbnail: video.thumbnail
-    }));
-  } catch (err) {
-    console.error("Search error:", err);
-    return [];
-  }
-}
+// In-memory queue state: { 'ROOM-1234': [ { id, title, user } ] }
+const rooms = {};
 
 io.on('connection', (socket) => {
-
+  // Join Room
   socket.on('joinRoom', (roomCode) => {
     socket.join(roomCode);
     socket.roomCode = roomCode;
-
-    if (!roomQueues[roomCode]) {
-      roomQueues[roomCode] = [];
+    if (!rooms[roomCode]) {
+      rooms[roomCode] = [];
     }
-
-    socket.emit('updateQueue', roomQueues[roomCode]);
+    socket.emit('updateQueue', rooms[roomCode]);
   });
 
+  // YouTube Song Search
   socket.on('searchSong', async (query) => {
-    const results = await searchYouTube(query);
-    socket.emit('searchResults', results);
+    try {
+      const searchResult = await yts(query);
+      const videos = searchResult.videos.slice(0, 10).map(v => ({
+        id: v.videoId,
+        title: v.title,
+        thumbnail: v.thumbnail
+      }));
+      socket.emit('searchResults', videos);
+    } catch (err) {
+      console.error('YouTube Search Error:', err);
+      socket.emit('searchResults', []);
+    }
   });
 
+  // Add Song to Queue
   socket.on('addSong', async (data) => {
-    const roomCode = socket.roomCode;
-    if (!roomCode || !roomQueues[roomCode]) return;
+    const room = socket.roomCode;
+    if (!room) return;
 
-    const videoId = extractVideoId(data.input);
-    const title = await fetchVideoTitle(videoId);
-    const userName = data.userName || 'Guest';
+    const videoId = data.input;
+    let songTitle = 'Requested Song';
 
-    roomQueues[roomCode].push({ id: videoId, title: title, user: userName });
-    io.to(roomCode).emit('updateQueue', roomQueues[roomCode]);
-  });
-
-  socket.on('nextSong', () => {
-    const roomCode = socket.roomCode;
-    if (roomCode && roomQueues[roomCode]) {
-      roomQueues[roomCode].shift();
-      io.to(roomCode).emit('updateQueue', roomQueues[roomCode]);
-    }
-  });
-
-  socket.on('removeSong', (index) => {
-    const roomCode = socket.roomCode;
-    if (roomCode && roomQueues[roomCode] && index >= 0 && index < roomQueues[roomCode].length) {
-      roomQueues[roomCode].splice(index, 1);
-      io.to(roomCode).emit('updateQueue', roomQueues[roomCode]);
-    }
-  });
-
-  socket.on('reorderQueue', ({ fromIndex, toIndex }) => {
-    const roomCode = socket.roomCode;
-    if (roomCode && roomQueues[roomCode]) {
-      const q = roomQueues[roomCode];
-      if (fromIndex >= 1 && toIndex >= 1 && fromIndex < q.length && toIndex < q.length) {
-        const [movedItem] = q.splice(fromIndex, 1);
-        q.splice(toIndex, 0, movedItem);
-        io.to(roomCode).emit('updateQueue', q);
+    try {
+      const videoInfo = await yts({ videoId: videoId });
+      if (videoInfo && videoInfo.title) {
+        songTitle = videoInfo.title;
       }
+    } catch (e) {
+      songTitle = `Song (${videoId})`;
+    }
+
+    const song = {
+      id: videoId,
+      title: songTitle,
+      user: data.userName || 'Guest'
+    };
+
+    rooms[room].push(song);
+    io.to(room).emit('updateQueue', rooms[room]);
+  });
+
+  // Play Next Song / Skip
+  socket.on('nextSong', () => {
+    const room = socket.roomCode;
+    if (room && rooms[room] && rooms[room].length > 0) {
+      rooms[room].shift();
+      io.to(room).emit('updateQueue', rooms[room]);
     }
   });
 
+  // Remove Specific Song from Queue
+  socket.on('removeSong', (index) => {
+    const room = socket.roomCode;
+    if (room && rooms[room] && rooms[room][index]) {
+      rooms[room].splice(index, 1);
+      io.to(room).emit('updateQueue', rooms[room]);
+    }
+  });
+
+  // Broadcast Marquee Ticker Text Update
+  socket.on('updateTicker', (data) => {
+    const room = socket.roomCode || (typeof data === 'object' ? data.roomCode : null);
+    const text = typeof data === 'object' ? data.text : data;
+    if (room && text) {
+      io.to(room).emit('tickerUpdated', text);
+    }
+  });
+
+  // Relay Sound Effects
   socket.on('playSound', (soundName) => {
     if (socket.roomCode) {
-      io.to(socket.roomCode).emit('triggerSound', soundName);
+      io.to(socket.roomCode).emit('playSound', soundName);
     }
   });
 
+  // Relay Floating Emojis
   socket.on('sendEmoji', (emoji) => {
     if (socket.roomCode) {
       io.to(socket.roomCode).emit('triggerEmoji', emoji);
     }
   });
-
-  socket.on('setVolume', (volumeLevel) => {
-    if (socket.roomCode) {
-      io.to(socket.roomCode).emit('updateVolume', volumeLevel);
-    }
-  });
-});
-
-app.get('/status', (req, res) => {
-  const adapterRooms = io.sockets.adapter.rooms;
-  const activeRooms = {};
-
-  adapterRooms.forEach((sockets, roomName) => {
-    if (roomName.startsWith('ROOM-')) {
-      activeRooms[roomName] = sockets.size;
-    }
-  });
-
-  const totalRooms = Object.keys(activeRooms).length;
-
-  let roomsListHtml = '';
-  if (totalRooms === 0) {
-    roomsListHtml = `
-      <div style="color: #64748b; margin-top: 15px;">No active rooms currently running</div>`;
-  } else {
-    for (const [roomCode, userCount] of Object.entries(activeRooms)) {
-      roomsListHtml += `
-        <div style="margin-top: 20px;">
-          <div><span style="color: #38bdf8; font-weight: bold;">Room:</span> <span style="color: #38bdf8;">${roomCode}</span></div>
-          <div><span style="color: #4ade80; font-weight: bold;">Users Connected:</span> <span style="color: #4ade80;">${userCount}</span></div>
-        </div>`;
-    }
-  }
-
-  const html = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mars KTV Room Dashboard</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { 
-      font-family: Tahoma, sans-serif; 
-      font-size: 14px; 
-      background-color: #080d19; 
-      color: #ffffff; 
-      padding: 30px; 
-      line-height: 1.6;
-    }
-    .header-title { color: #ffffff; font-weight: bold; margin-bottom: 4px; }
-    .clock-text { color: #ffffff; margin-bottom: 25px; }
-    .active-count { color: #facc15; font-weight: bold; margin-bottom: 10px; }
-  </style>
-</head>
-<body>
-  <div class="header-title">Mars KTV Room Dashboard</div>
-  <div id="liveClock" class="clock-text">-- | --</div>
-  <div class="active-count">Total Active Rooms: ${totalRooms}</div>
-  ${roomsListHtml}
-  <script>
-    function updateClock() {
-      const now = new Date();
-      const dateStr = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-      const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-      document.getElementById('liveClock').textContent = dateStr + ' | ' + timeStr;
-    }
-    updateClock();
-    setInterval(updateClock, 1000);
-    setTimeout(() => { window.location.reload(); }, 10000);
-  </script>
-</body>
-</html>`;
-
-  res.send(html);
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, '0.0.0.0', () => {
-  console.log(`KTV App live on port ${PORT}`);
+server.listen(PORT, () => {
+  console.log(`🎙️ Mars KTV Server is running on port ${PORT}`);
 });

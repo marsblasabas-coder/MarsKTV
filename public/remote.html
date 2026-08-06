@@ -10,51 +10,44 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
     body { background-color: #0f172a; color: #f8fafc; padding: 16px; padding-bottom: 90px; }
 
-    /* Top Header */
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     .brand { font-size: 1.2rem; font-weight: 800; color: #f43f5e; }
     .room-tag { background: #334155; padding: 4px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 700; color: #38bdf8; }
 
-    /* Identity Input */
     .user-input { margin-bottom: 16px; }
     .user-input input { width: 100%; padding: 10px 14px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; color: #fff; font-size: 0.9rem; }
 
-    /* Search Box */
     .search-box { display: flex; gap: 8px; margin-bottom: 20px; }
     .search-box input { flex: 1; padding: 12px; background: #1e293b; border: 1px solid #334155; border-radius: 10px; color: #fff; font-size: 1rem; }
     .search-box button { background: #f43f5e; color: #fff; border: none; padding: 0 18px; border-radius: 10px; font-weight: 700; cursor: pointer; }
 
-    /* Navigation Tabs */
     .nav-tabs { display: flex; gap: 8px; border-bottom: 1px solid #334155; margin-bottom: 16px; }
     .tab-btn { flex: 1; padding: 10px; background: none; border: none; color: #94a3b8; font-weight: 700; font-size: 0.9rem; border-bottom: 2px solid transparent; cursor: pointer; }
     .tab-btn.active { color: #f43f5e; border-bottom-color: #f43f5e; }
 
-    /* Section Views */
     .view-section { display: none; }
     .view-section.active { display: block; }
 
-    /* List Items */
     .item-card { background: #1e293b; border-radius: 10px; padding: 12px; margin-bottom: 10px; display: flex; gap: 12px; align-items: center; }
     .item-card img { width: 60px; height: 45px; border-radius: 6px; object-fit: cover; }
     .item-info { flex: 1; overflow: hidden; }
     .item-title { font-size: 0.9rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .item-sub { font-size: 0.75rem; color: #94a3b8; margin-top: 2px; }
-    .btn-add { background: #10b981; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 700; font-size: 0.8rem; cursor: pointer; }
+    
+    .btn-add { background: #10b981; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 700; font-size: 0.8rem; cursor: pointer; transition: all 0.2s ease; min-width: 75px; }
+    .btn-add.added { background: #3b82f6; }
     .btn-danger { background: #ef4444; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; }
 
-    /* Quick Action Controls */
     .sound-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
     .sound-btn { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; padding: 12px 8px; border-radius: 8px; font-weight: 700; font-size: 0.8rem; cursor: pointer; text-align: center; }
     .sound-btn:active { background: #334155; }
 
-    /* Emoji Bar */
     .emoji-section { background: #1e293b; border-radius: 12px; padding: 12px; margin-bottom: 20px; text-align: center; }
     .emoji-label { font-size: 0.75rem; color: #94a3b8; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; }
     .emoji-bar { display: flex; justify-content: space-around; }
     .emoji-btn { font-size: 1.6rem; background: #0f172a; border: 1px solid #334155; width: 48px; height: 48px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; }
     .emoji-btn:active { transform: scale(0.9); }
 
-    /* Sticky Playback Bottom Bar */
     .playback-bar { position: fixed; bottom: 0; left: 0; width: 100%; background: #090d16; border-top: 1px solid #334155; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; z-index: 100; }
     .btn-skip { background: #3b82f6; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 800; font-size: 0.85rem; cursor: pointer; }
   </style>
@@ -70,7 +63,6 @@
     <input type="text" id="userName" placeholder="Your Name (e.g. Alex)" maxlength="15">
   </div>
 
-  <!-- Emoji Reactions Bar -->
   <div class="emoji-section">
     <div class="emoji-label">Send Reaction to TV</div>
     <div class="emoji-bar">
@@ -109,7 +101,6 @@
       <button class="sound-btn" onclick="playSound('cheer')">🙌 Cheering</button>
       <button class="sound-btn" onclick="playSound('laughter')">😂 Laugh</button>
       <button class="sound-btn" onclick="playSound('airhorn')">📢 Airhorn</button>
-
       <button class="sound-btn" onclick="playSound('drumroll')">🥁 Drumroll</button>
       <button class="sound-btn" onclick="playSound('boo')">👎 Boo</button>
     </div>
@@ -132,7 +123,6 @@
   document.getElementById('roomDisplay').textContent = roomCode;
   socket.emit('joinRoom', roomCode);
 
-  // Tab Navigation
   function switchTab(tabName) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.view-section').forEach(view => view.classList.remove('active'));
@@ -149,7 +139,6 @@
     }
   }
 
-  // Search Logic
   function performSearch() {
     const query = document.getElementById('searchInput').value.trim();
     if (!query) return;
@@ -178,18 +167,30 @@
         <div class="item-info">
           <div class="item-title">${video.title}</div>
         </div>
-        <button class="btn-add" onclick="addSong('${video.id}')">+ Add</button>
+        <button class="btn-add" onclick="addSong('${video.id}', this)">+ Add</button>
       `;
       resultsContainer.appendChild(card);
     });
   });
 
-  function addSong(videoId) {
+  function addSong(videoId, btn) {
     const userName = document.getElementById('userName').value.trim() || 'Guest';
     socket.emit('addSong', { input: videoId, userName: userName });
+
+    // Immediate Visual Feedback on Remote
+    if (btn) {
+      btn.textContent = 'Added ✓';
+      btn.classList.add('added');
+      btn.disabled = true;
+
+      setTimeout(() => {
+        btn.textContent = '+ Add';
+        btn.classList.remove('added');
+        btn.disabled = false;
+      }, 2000);
+    }
   }
 
-  // Handle Queue State Updates
   socket.on('updateQueue', (queue) => {
     document.getElementById('queueCount').textContent = queue.length;
     const queueList = document.getElementById('queueList');
@@ -220,21 +221,10 @@
     });
   });
 
-  function skipSong() {
-    socket.emit('nextSong');
-  }
-
-  function removeSong(index) {
-    socket.emit('removeSong', index);
-  }
-
-  function playSound(soundName) {
-    socket.emit('playSound', soundName);
-  }
-
-  function sendReaction(emoji) {
-    socket.emit('sendEmoji', emoji);
-  }
+  function skipSong() { socket.emit('nextSong'); }
+  function removeSong(index) { socket.emit('removeSong', index); }
+  function playSound(soundName) { socket.emit('playSound', soundName); }
+  function sendReaction(emoji) { socket.emit('sendEmoji', emoji); }
 </script>
 </body>
 </html>

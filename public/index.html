@@ -9,208 +9,49 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background-color: #050811;
-      color: #fff;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      overflow: hidden;
-      height: 100vh;
-      width: 100vw;
-    }
+    body { background-color: #050811; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; height: 100vh; width: 100vw; }
 
-    #mainContainer {
-      position: relative;
-      width: 100vw;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      transition: background 1s ease;
-    }
+    #mainContainer { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; }
+    #mainContainer.idle-active { background: radial-gradient(circle at center, #1e1b4b 0%, #090d16 100%); }
 
-    #mainContainer.idle-active {
-      background: radial-gradient(circle at center, #1e1b4b 0%, #090d16 100%);
-    }
-
-    /* Start Overlay for Browser Autoplay Permission */
-    #startOverlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(8, 13, 25, 0.95);
-      z-index: 99999;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      cursor: pointer;
-    }
-
+    #startOverlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(8, 13, 25, 0.95); z-index: 99999; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; }
     #startOverlay h1 { font-size: 2.5rem; color: #f43f5e; margin-bottom: 10px; }
     #startOverlay p { font-size: 1.2rem; color: #94a3b8; }
 
-    /* Top Header Bar */
-    header {
-      height: 70px;
-      background: rgba(15, 23, 42, 0.85);
-      backdrop-filter: blur(8px);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0 30px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      z-index: 10;
-    }
+    /* Header Bar with Mini Persistent QR Code */
+    header { height: 80px; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); display: flex; justify-content: space-between; align-items: center; padding: 0 25px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); z-index: 20; }
+    .brand { font-size: 1.4rem; font-weight: 800; color: #f43f5e; display: flex; align-items: center; gap: 10px; }
+    .header-center { display: flex; align-items: center; gap: 15px; }
+    .room-badge { background: #3b82f6; color: #fff; padding: 6px 14px; border-radius: 20px; font-weight: 800; font-size: 1rem; }
+    #miniQrCode { background: #fff; padding: 4px; border-radius: 6px; display: flex; align-items: center; }
 
-    .brand { font-size: 1.5rem; font-weight: 800; color: #f43f5e; display: flex; align-items: center; gap: 10px; }
-    .room-badge { background: #3b82f6; color: #fff; padding: 6px 16px; border-radius: 20px; font-weight: 800; font-size: 1.1rem; }
-    .clock { font-size: 1rem; color: #94a3b8; font-weight: 600; }
-
-    /* Video Stage */
-    .stage {
-      flex: 1;
-      position: relative;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
+    /* Stage Area */
+    .stage { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; }
     #player { width: 100%; height: 100%; border: none; }
 
-    /* Idle Overlay Screen Saver */
-    #idleOverlay {
-      position: absolute;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 20px;
-      z-index: 5;
-    }
+    /* Idle Screen Saver Overlay */
+    #idleOverlay { position: absolute; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 20px; z-index: 5; }
+    #mainQrCode { padding: 16px; background: #fff; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
 
-    #qrcode { padding: 16px; background: #fff; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    /* Persistent Waiting List Overlay on Monitor */
+    #queueOverlay { position: absolute; top: 20px; left: 20px; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(6px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 12px 16px; max-width: 320px; z-index: 15; pointer-events: none; }
+    .queue-title { font-size: 0.75rem; font-weight: 800; color: #f43f5e; letter-spacing: 1px; margin-bottom: 6px; text-transform: uppercase; }
+    .queue-item { font-size: 0.85rem; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
 
-    /* Up Next Banner */
-    #upNextBanner {
-      position: absolute;
-      top: 20px;
-      right: -400px;
-      background: rgba(15, 23, 42, 0.95);
-      border-left: 5px solid #f43f5e;
-      padding: 15px 25px;
-      border-radius: 8px 0 0 8px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-      transition: right 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      z-index: 20;
-    }
+    /* HD Floating Emoji Overlay */
+    #emojiContainer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; overflow: hidden; }
+    .floating-emoji { position: absolute; font-size: 3.5rem; user-select: none; animation: floatUp 3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6)); }
+    @keyframes floatUp { 0% { transform: translateY(100vh) scale(0.5) rotate(0deg); opacity: 0; } 15% { opacity: 1; transform: translateY(80vh) scale(1.2) rotate(-10deg); } 80% { opacity: 0.9; } 100% { transform: translateY(-10vh) scale(1) rotate(15deg); opacity: 0; } }
 
-    #upNextBanner.slide-in { right: 0; }
-
-    /* Visualizer Bar Container */
-    .visualizer-container {
-      position: absolute;
-      bottom: 40px;
-      left: 0;
-      width: 100%;
-      height: 40px;
-      display: flex;
-      justify-content: center;
-      align-items: flex-end;
-      gap: 6px;
-      z-index: 15;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.5s ease;
-    }
-
-    .visualizer-container.active { opacity: 0.7; }
-
-    .bar {
-      width: 8px;
-      background: linear-gradient(to top, #f43f5e, #3b82f6);
-      border-radius: 4px;
-      animation: bounce 0.8s infinite alternate ease-in-out;
-    }
-
-    @keyframes bounce {
-      0% { height: 5px; }
-      100% { height: 35px; }
-    }
-
-    /* Floating Emojis Overlay Container */
-    #emojiContainer {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 9999;
-      overflow: hidden;
-    }
-
-    .floating-emoji {
-      position: absolute;
-      font-size: 3.5rem;
-      user-select: none;
-      animation: floatUp 3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
-      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6));
-    }
-
-    @keyframes floatUp {
-      0% {
-        transform: translateY(100vh) scale(0.5) rotate(0deg);
-        opacity: 0;
-      }
-      15% {
-        opacity: 1;
-        transform: translateY(80vh) scale(1.2) rotate(-10deg);
-      }
-      80% {
-        opacity: 0.9;
-      }
-      100% {
-        transform: translateY(-10vh) scale(1) rotate(15deg);
-        opacity: 0;
-      }
-    }
-
-    /* Bottom Ticker Marquee */
-    .ticker-wrap {
-      height: 40px;
-      background: #020617;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-      overflow: hidden;
-      white-space: nowrap;
-      z-index: 10;
-    }
-
-    .ticker-move {
-      display: inline-block;
-      white-space: nowrap;
-      padding-left: 100%;
-      animation: ticker 25s linear infinite;
-    }
-
-    .ticker-item {
-      display: inline-block;
-      padding: 0 2rem;
-      font-size: 0.95rem;
-      color: #e2e8f0;
-      font-weight: 600;
-      line-height: 40px;
-    }
-
-    @keyframes ticker {
-      0% { transform: translate3d(0, 0, 0); }
-      100% { transform: translate3d(-100%, 0, 0); }
-    }
+    /* Ticker Footer */
+    .ticker-wrap { height: 40px; background: #020617; border-top: 1px solid rgba(255, 255, 255, 0.1); overflow: hidden; white-space: nowrap; z-index: 10; }
+    .ticker-move { display: inline-block; white-space: nowrap; padding-left: 100%; animation: ticker 25s linear infinite; }
+    .ticker-item { display: inline-block; padding: 0 2rem; font-size: 0.95rem; color: #e2e8f0; font-weight: 600; line-height: 40px; }
+    @keyframes ticker { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
   </style>
 </head>
 <body>
 
-<!-- Initial Click Overlay to enable browser autoplay -->
 <div id="startOverlay" onclick="enableAudioAndStart()">
   <h1>🎙️ Click Anywhere to Start KTV Display</h1>
   <p>Enables audio & autoplay for this session</p>
@@ -219,8 +60,11 @@
 <div id="mainContainer" class="idle-active">
   <header>
     <div class="brand">🎙️ Mars KTV</div>
-    <div id="roomBadge" class="room-badge">ROOM-____</div>
-    <div id="clock" class="clock">--:--:-- --</div>
+    <div class="header-center">
+      <div id="roomBadge" class="room-badge">ROOM-____</div>
+      <div id="miniQrCode"></div>
+    </div>
+    <div id="clock" style="font-size: 0.95rem; color: #94a3b8; font-weight: 600;">--:--:-- --</div>
   </header>
 
   <div class="stage">
@@ -228,23 +72,22 @@
 
     <div id="idleOverlay">
       <h1 style="font-size: 2.5rem; font-weight: 800;">Scan to Join KTV Room</h1>
-      <div id="qrcode"></div>
+      <div id="mainQrCode"></div>
       <p style="color: #94a3b8; font-size: 1.1rem;">Scan with your mobile camera to pick songs</p>
     </div>
 
-    <div id="upNextBanner">
-      <div style="font-size: 0.75rem; color: #f43f5e; font-weight: 800; letter-spacing: 1px;">UP NEXT</div>
-      <div id="upNextTitle" style="font-size: 1.1rem; font-weight: 700; color: #fff; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Song Title</div>
-      <div id="upNextUser" style="font-size: 0.85rem; color: #94a3b8;">Requested by: Guest</div>
+    <!-- Live Waiting List Display -->
+    <div id="queueOverlay" style="display: none;">
+      <div class="queue-title">📋 UP NEXT IN QUEUE</div>
+      <div id="queuePreviewList"></div>
     </div>
 
-    <div id="visualizer" class="visualizer-container"></div>
     <div id="emojiContainer"></div>
   </div>
 
   <div class="ticker-wrap">
     <div class="ticker-move">
-      <div class="ticker-item">🌟 Welcome to Mars KTV! Scan the QR Code on screen to start queuing songs from your phone.</div>
+      <div class="ticker-item">🌟 Welcome to Mars KTV! Scan the QR Code on top to start queuing songs from your phone.</div>
       <div class="ticker-item">🎤 Have fun, cheer on your friends, and enjoy your session!</div>
     </div>
   </div>
@@ -256,16 +99,14 @@
   let isPlayerReady = false;
   let roomCode = 'ROOM-' + Math.floor(1000 + Math.random() * 9000);
   let currentQueue = [];
-  let isBannerShown = false;
 
   document.getElementById('roomBadge').textContent = roomCode;
   socket.emit('joinRoom', roomCode);
 
-  new QRCode(document.getElementById("qrcode"), {
-    text: `${window.location.origin}/remote.html?room=${roomCode}`,
-    width: 180,
-    height: 180
-  });
+  const remoteUrl = `${window.location.origin}/remote.html?room=${roomCode}`;
+
+  new QRCode(document.getElementById("mainQrCode"), { text: remoteUrl, width: 180, height: 180 });
+  new QRCode(document.getElementById("miniQrCode"), { text: remoteUrl, width: 50, height: 50 });
 
   function enableAudioAndStart() {
     document.getElementById('startOverlay').style.display = 'none';
@@ -274,24 +115,13 @@
     }
   }
 
-  // Live Clock
   function updateClock() {
-    const now = new Date();
-    document.getElementById('clock').textContent = now.toLocaleTimeString('en-US');
+    document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-US');
   }
   setInterval(updateClock, 1000);
   updateClock();
 
-  // Create Visualizer Bars
-  const visContainer = document.getElementById('visualizer');
-  for (let i = 0; i < 24; i++) {
-    const bar = document.createElement('div');
-    bar.className = 'bar';
-    bar.style.animationDelay = `${(i % 5) * 0.15}s`;
-    visContainer.appendChild(bar);
-  }
-
-  // YouTube IFrame API initialization
+  // YouTube API
   const tag = document.createElement('script');
   tag.src = "https://www.youtube.com/iframe_api";
   const firstScriptTag = document.getElementsByTagName('script')[0];
@@ -303,61 +133,36 @@
       width: '100%',
       playerVars: { 'autoplay': 1, 'controls': 0, 'rel': 0, 'enablejsapi': 1 },
       events: {
-        'onReady': onPlayerReady,
-        'onStateChange': onPlayerStateChange,
+        'onReady': () => {
+          isPlayerReady = true;
+          if (currentQueue.length > 0) player.loadVideoById(currentQueue[0].id);
+        },
+        'onStateChange': (e) => { if (e.data === YT.PlayerState.ENDED) socket.emit('nextSong'); },
         'onError': () => socket.emit('nextSong')
       }
     });
   }
 
-  function onPlayerReady() {
-    isPlayerReady = true;
-    if (currentQueue.length > 0) {
-      player.loadVideoById(currentQueue[0].id);
-    }
-  }
-
-  function onPlayerStateChange(event) {
-    if (event.data === YT.PlayerState.ENDED) {
-      socket.emit('nextSong');
-    }
-  }
-
-  // Up Next Banner check loop
-  setInterval(() => {
-    if (player && player.getCurrentTime && player.getDuration) {
-      const currentTime = player.getCurrentTime();
-      const duration = player.getDuration();
-      if (duration > 0 && (duration - currentTime <= 30) && currentQueue.length > 1 && !isBannerShown) {
-        showUpNext(currentQueue[1]);
-      }
-    }
-  }, 1000);
-
-  function showUpNext(nextSong) {
-    isBannerShown = true;
-    document.getElementById('upNextTitle').textContent = nextSong.title;
-    document.getElementById('upNextUser').textContent = `Requested by: ${nextSong.user}`;
-    const banner = document.getElementById('upNextBanner');
-    banner.classList.add('slide-in');
-    setTimeout(() => {
-      banner.classList.remove('slide-in');
-    }, 8000);
-  }
-
-  // Handle Socket Queue Updates
+  // Socket Updates
   socket.on('updateQueue', (queue) => {
     currentQueue = queue;
-    isBannerShown = false;
-    document.getElementById('upNextBanner').classList.remove('slide-in');
-
     const container = document.getElementById('mainContainer');
     const idleOverlay = document.getElementById('idleOverlay');
+    const queueOverlay = document.getElementById('queueOverlay');
+    const queuePreviewList = document.getElementById('queuePreviewList');
 
     if (queue.length > 0) {
       container.classList.remove('idle-active');
       idleOverlay.style.display = 'none';
-      visContainer.classList.add('active');
+
+      if (queue.length > 1) {
+        queueOverlay.style.display = 'block';
+        queuePreviewList.innerHTML = queue.slice(1, 4).map((s, idx) => 
+          `<div class="queue-item"><b>#${idx + 1}</b> ${s.title} <span style="color:#94a3b8">(${s.user})</span></div>`
+        ).join('');
+      } else {
+        queueOverlay.style.display = 'none';
+      }
 
       const currentVideoId = queue[0].id;
       if (isPlayerReady && player && player.loadVideoById) {
@@ -368,12 +173,12 @@
     } else {
       container.classList.add('idle-active');
       idleOverlay.style.display = 'flex';
-      visContainer.classList.remove('active');
+      queueOverlay.style.display = 'none';
       if (isPlayerReady && player && player.stopVideo) player.stopVideo();
     }
   });
 
-  // HD Floating Emoji Animation Handler
+  // Emojis Handler
   socket.on('triggerEmoji', (emoji) => {
     const container = document.getElementById('emojiContainer');
     for (let i = 0; i < 5; i++) {
@@ -383,10 +188,7 @@
         el.textContent = emoji;
         el.style.left = Math.floor(Math.random() * 85 + 5) + '%';
         container.appendChild(el);
-
-        setTimeout(() => {
-          el.remove();
-        }, 3000);
+        setTimeout(() => el.remove(), 3000);
       }, i * 200);
     }
   });

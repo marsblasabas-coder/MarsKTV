@@ -274,21 +274,21 @@
     }
   });
 
-  // Marquee Ticker update (shows broadcasted text for 30s, then reverts to default)
+  // Single-item Marquee Ticker update (no duplication, reverts after 30 seconds)
   socket.on('tickerUpdated', (text) => {
     const tickerContainer = document.getElementById('tickerContent');
     if (!tickerContainer) return;
 
-    tickerContainer.innerHTML = `<div class="ticker-item">📢 ANNOUNCEMENT: ${text}</div><div class="ticker-item">📢 ANNOUNCEMENT: ${text}</div>`;
+    tickerContainer.innerHTML = `<div class="ticker-item">📢 ANNOUNCEMENT: ${text}</div>`;
 
     if (marqueeTimeout) clearTimeout(marqueeTimeout);
 
     marqueeTimeout = setTimeout(() => {
       tickerContainer.innerHTML = defaultMarqueeHTML;
-    }, 30000); // 30 Seconds
+    }, 30000);
   });
 
-  // Synthesized Sound Effects Engine
+  // Upgraded High-Volume Synth SFX Engine
   socket.on('playSound', (sound) => {
     if (!audioCtx) {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -299,68 +299,143 @@
     }
     if (!audioCtx) return;
 
+    const master = audioCtx.createGain();
+    master.gain.setValueAtTime(1.0, audioCtx.currentTime);
+    master.connect(audioCtx.destination);
     const now = audioCtx.currentTime;
 
     if (sound === 'airhorn') {
-      [370, 370, 370, 370, 493.88].forEach((freq, i) => {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(freq, now + i * 0.12);
-        gain.gain.setValueAtTime(0.4, now + i * 0.12);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.12 + 0.11);
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(now + i * 0.12); osc.stop(now + i * 0.12 + 0.11);
+      const freqs = [466.16, 311.13, 233.08];
+      const pattern = [0, 0.15, 0.30, 0.55];
+      const durations = [0.12, 0.12, 0.12, 0.65];
+
+      pattern.forEach((startTime, idx) => {
+        const dur = durations[idx];
+        freqs.forEach(freq => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, now + startTime);
+          osc.frequency.exponentialRampToValueAtTime(freq * 1.03, now + startTime + dur);
+
+          gain.gain.setValueAtTime(0.35, now + startTime);
+          gain.gain.setValueAtTime(0.35, now + startTime + dur - 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + startTime + dur);
+
+          osc.connect(gain); gain.connect(master);
+          osc.start(now + startTime); osc.stop(now + startTime + dur);
+        });
       });
     } else if (sound === 'applause' || sound === 'cheer') {
-      const bufferSize = audioCtx.sampleRate * 2.0;
+      const dur = 3.5;
+      const bufferSize = audioCtx.sampleRate * dur;
       const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
       const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
+      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
       const noise = audioCtx.createBufferSource();
       noise.buffer = buffer;
       const filter = audioCtx.createBiquadFilter();
       filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(sound === 'cheer' ? 1400 : 900, now);
-      filter.Q.setValueAtTime(1.2, now);
+      filter.frequency.setValueAtTime(sound === 'cheer' ? 1400 : 1000, now);
+      filter.Q.setValueAtTime(0.8, now);
+
       const gain = audioCtx.createGain();
-      gain.gain.setValueAtTime(0.5, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 2.0);
-      noise.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+      gain.gain.setValueAtTime(0.01, now);
+      gain.gain.linearRampToValueAtTime(0.8, now + 0.4);
+      gain.gain.setValueAtTime(0.8, now + dur - 0.8);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+      noise.connect(filter); filter.connect(gain); gain.connect(master);
       noise.start(now);
-    } else if (sound === 'drumroll') {
-      for (let i = 0; i < 24; i++) {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(130, now + i * 0.04);
-        gain.gain.setValueAtTime(0.3, now + i * 0.04);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.04 + 0.035);
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(now + i * 0.04); osc.stop(now + i * 0.04 + 0.035);
+
+      for (let c = 0; c < 40; c++) {
+        const clapTime = now + 0.1 + Math.random() * (dur - 0.5);
+        const clapOsc = audioCtx.createBufferSource();
+        clapOsc.buffer = buffer;
+        const clapFilter = audioCtx.createBiquadFilter();
+        clapFilter.type = 'highpass';
+        clapFilter.frequency.value = 1000 + Math.random() * 1000;
+        const clapGain = audioCtx.createGain();
+        clapGain.gain.setValueAtTime(0.6, clapTime);
+        clapGain.gain.exponentialRampToValueAtTime(0.01, clapTime + 0.08);
+
+        clapOsc.connect(clapFilter); clapFilter.connect(clapGain); clapGain.connect(master);
+        clapOsc.start(clapTime); clapOsc.stop(clapTime + 0.08);
       }
+    } else if (sound === 'drumroll') {
+      const rollDuration = 2.2;
+      const totalHits = 32;
+
+      for (let i = 0; i < totalHits; i++) {
+        const hitTime = now + (i / totalHits) * rollDuration;
+        const hitVol = 0.1 + (i / totalHits) * 0.6;
+
+        const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.05, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let k = 0; k < data.length; k++) data[k] = Math.random() * 2 - 1;
+
+        const src = audioCtx.createBufferSource();
+        src.buffer = buffer;
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(hitVol, hitTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, hitTime + 0.04);
+
+        src.connect(gain); gain.connect(master);
+        src.start(hitTime);
+      }
+
+      // Finale Cymbal Crash
+      const crashTime = now + rollDuration;
+      const crashBuf = audioCtx.createBuffer(1, audioCtx.sampleRate * 1.8, audioCtx.sampleRate);
+      const crashData = crashBuf.getChannelData(0);
+      for (let k = 0; k < crashData.length; k++) crashData[k] = Math.random() * 2 - 1;
+
+      const crashSrc = audioCtx.createBufferSource();
+      crashSrc.buffer = crashBuf;
+      const crashFilter = audioCtx.createBiquadFilter();
+      crashFilter.type = 'highpass';
+      crashFilter.frequency.setValueAtTime(3500, crashTime);
+      const crashGain = audioCtx.createGain();
+      crashGain.gain.setValueAtTime(0.9, crashTime);
+      crashGain.gain.exponentialRampToValueAtTime(0.001, crashTime + 1.8);
+
+      crashSrc.connect(crashFilter); crashFilter.connect(crashGain); crashGain.connect(master);
+      crashSrc.start(crashTime);
     } else if (sound === 'laughter' || sound === 'laugh') {
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 6; i++) {
+        const t = now + i * 0.22;
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(450, now + i * 0.2);
-        osc.frequency.exponentialRampToValueAtTime(250, now + i * 0.2 + 0.15);
-        gain.gain.setValueAtTime(0.4, now + i * 0.2);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.2 + 0.15);
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(now + i * 0.2); osc.stop(now + i * 0.2 + 0.15);
+        osc.type = 'sawtooth';
+        const startPitch = 500 - i * 20 + Math.random() * 40;
+        osc.frequency.setValueAtTime(startPitch, t);
+        osc.frequency.exponentialRampToValueAtTime(startPitch * 0.5, t + 0.18);
+
+        gain.gain.setValueAtTime(0.7, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.18);
+
+        osc.connect(gain); gain.connect(master);
+        osc.start(t); osc.stop(t + 0.18);
       }
     } else if (sound === 'boo') {
       const osc = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(160, now);
-      osc.frequency.exponentialRampToValueAtTime(80, now + 1.2);
-      gain.gain.setValueAtTime(0.4, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 1.2);
-      osc.connect(gain); gain.connect(audioCtx.destination);
-      osc.start(now); osc.stop(now + 1.2);
+
+      osc.type = 'sawtooth'; osc2.type = 'square';
+      osc.frequency.setValueAtTime(220, now);
+      osc.frequency.exponentialRampToValueAtTime(80, now + 2.2);
+      osc2.frequency.setValueAtTime(223, now);
+      osc2.frequency.exponentialRampToValueAtTime(81, now + 2.2);
+
+      gain.gain.setValueAtTime(0.8, now);
+      gain.gain.setValueAtTime(0.8, now + 1.6);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 2.2);
+
+      osc.connect(gain); osc2.connect(gain); gain.connect(master);
+      osc.start(now); osc2.start(now);
+      osc.stop(now + 2.2); osc2.stop(now + 2.2);
     }
   });
 

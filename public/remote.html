@@ -81,7 +81,6 @@
     <button class="tab-btn" onclick="switchTab('ticker')">Marquee</button>
   </div>
 
-  <!-- Search View -->
   <div id="searchView" class="view-section active">
     <div class="search-box">
       <input type="text" id="searchInput" placeholder="Search song or artist...">
@@ -90,12 +89,10 @@
     <div id="searchResults"></div>
   </div>
 
-  <!-- Queue View -->
   <div id="queueView" class="view-section">
     <div id="queueList"></div>
   </div>
 
-  <!-- SFX View -->
   <div id="fxView" class="view-section">
     <div class="sound-grid">
       <button class="sound-btn" onclick="playSound('applause')">👏 Applause</button>
@@ -107,7 +104,6 @@
     </div>
   </div>
 
-  <!-- Marquee Text View -->
   <div id="tickerView" class="view-section">
     <div style="background: #1e293b; padding: 16px; border-radius: 12px;">
       <div style="font-size: 0.85rem; font-weight: 700; color: #f43f5e; margin-bottom: 8px;">UPDATE TV MARQUEE (30s DISPLAY)</div>
@@ -116,7 +112,6 @@
     </div>
   </div>
 
-  <!-- Playback Control Footer -->
   <div class="playback-bar">
     <div>
       <div style="font-size: 0.7rem; color: #94a3b8; font-weight: 700;">NOW PLAYING</div>
@@ -175,20 +170,21 @@
     results.forEach(video => {
       const card = document.createElement('div');
       card.className = 'item-card';
+      const escapedTitle = video.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
       card.innerHTML = `
         <img src="${video.thumbnail}" alt="thumb">
         <div class="item-info">
           <div class="item-title">${video.title}</div>
         </div>
-        <button class="btn-add" onclick="addSong('${video.id}', this)">+ Add</button>
+        <button class="btn-add" onclick="addSong('${video.id}', '${escapedTitle}', this)">+ Add</button>
       `;
       resultsContainer.appendChild(card);
     });
   });
 
-  function addSong(videoId, btn) {
+  function addSong(videoId, videoTitle, btn) {
     const userName = document.getElementById('userName').value.trim() || 'Guest';
-    socket.emit('addSong', { input: videoId, userName: userName });
+    socket.emit('addSong', { room: roomCode, id: videoId, title: videoTitle, user: userName });
 
     if (btn) {
       btn.textContent = 'Added ✓';
@@ -242,9 +238,9 @@
   }
 
   function skipSong() { socket.emit('nextSong'); }
-  function removeSong(index) { socket.emit('removeSong', index); }
-  function playSound(soundName) { socket.emit('playSound', { roomCode: roomCode, sound: soundName }); }
-  function sendReaction(emoji) { socket.emit('sendEmoji', { roomCode: roomCode, emoji: emoji }); }
+  function removeSong(index) { socket.emit('removeSong', { room: roomCode, index: index }); }
+  function playSound(soundName) { socket.emit('playSound', { room: roomCode, sound: soundName }); }
+  function sendReaction(emoji) { socket.emit('sendEmoji', { room: roomCode, emoji: emoji }); }
 </script>
 </body>
 </html>

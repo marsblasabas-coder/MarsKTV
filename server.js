@@ -113,6 +113,26 @@ io.on('connection', (socket) => {
   });
 });
 
+// Admin status route to inspect active KTV rooms and user counts
+app.get('/status', (req, res) => {
+  const adapterRooms = io.sockets.adapter.rooms;
+  const activeRooms = {};
+
+  adapterRooms.forEach((sockets, roomName) => {
+    // Filter out individual socket connection IDs, tracking only ROOM- codes
+    if (roomName.startsWith('ROOM-')) {
+      activeRooms[roomName] = {
+        usersConnected: sockets.size
+      };
+    }
+  });
+
+  res.json({
+    totalActiveRooms: Object.keys(activeRooms).length,
+    rooms: activeRooms
+  });
+});
+
 const PORT = process.env.PORT || 3000;
 http.listen(PORT, '0.0.0.0', () => {
   console.log(`KTV App live on port ${PORT}`);

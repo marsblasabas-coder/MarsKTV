@@ -1,0 +1,15 @@
+to Monitor if the Mars KTV Room is online:
+https://dashboard.uptimerobot.com/monitors
+use mars.blasabas@gmail.com as default user
+
+
+if there are changes in the design of monitor and remote:
+open Virtual Studio Code or VS Code
+your terminal: PS C:\Users\Personal\ktv-app>
+
+url for the Mars KTV Room Monitor:
+https://marsktv.onrender.com
+
+url for the Mars KTV Room Remote:
+https://marsktv.onrender.com/remote.html
+

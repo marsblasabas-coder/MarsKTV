@@ -2,237 +2,239 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KTV Remote</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mars KTV Remote Control</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎙️</text></svg>">
   <script src="/socket.io/socket.io.js"></script>
   <style>
-    * { box-sizing: border-box; }
-    body { font-family: -apple-system, sans-serif; background: #080d19; color: white; padding: 16px; margin: 0; }
-    h2 { margin: 0 0 4px 0; text-align: center; font-size: 1.2rem; }
-    .room-badge { text-align: center; font-size: 0.75rem; color: #ec4899; font-weight: bold; margin-bottom: 12px; }
-    .user-box { background: #0f1a30; padding: 10px; border-radius: 8px; margin-bottom: 12px; font-size: 0.85rem; display: flex; align-items: center; justify-content: space-between; border: 1px solid #1e293b; }
-    input[type="text"] { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #1e293b; background: #0f1a30; color: white; font-size: 15px; margin-bottom: 8px; }
-    .search-box { display: flex; gap: 8px; }
-    button { padding: 12px; border-radius: 8px; border: none; font-size: 14px; font-weight: bold; cursor: pointer; }
-    .btn-search { background: #06b6d4; color: black; white-space: nowrap; }
-    .btn-skip { background: #ef4444; color: white; width: 100%; margin-top: 10px; }
-    .soundboard { display: flex; gap: 8px; margin-top: 12px; }
-    .btn-sound { flex: 1; background: #334155; color: white; font-size: 1rem; padding: 10px 0; }
-    .vol-box { background: #0f1a30; padding: 12px; border-radius: 8px; margin-top: 12px; border: 1px solid #1e293b; }
-    .vol-box label { font-size: 0.8rem; color: #94a3b8; display: block; margin-bottom: 6px; }
-    input[type="range"] { width: 100%; }
-    .results-list, .history-list { margin-top: 8px; max-height: 200px; overflow-y: auto; }
-    .result-item, .history-item { display: flex; align-items: center; gap: 10px; background: #16233d; padding: 8px; border-radius: 6px; margin-bottom: 6px; cursor: pointer; }
-    .result-item img, .history-item img { width: 50px; height: 38px; border-radius: 4px; object-fit: cover; }
-    .title { font-size: 0.8rem; line-height: 1.2; flex: 1; }
-    .tab-bar { display: flex; gap: 8px; margin-top: 16px; border-bottom: 1px solid #1e293b; padding-bottom: 8px; }
-    .tab-btn { flex: 1; background: #16233d; color: #94a3b8; padding: 8px; border-radius: 6px; font-size: 0.8rem; }
-    .tab-btn.active { background: #06b6d4; color: black; }
-    .queue-box { background: #0f1a30; padding: 12px; border-radius: 10px; margin-top: 12px; border: 1px solid #1e293b; }
-    .song-item { background: #16233d; padding: 8px 12px; border-radius: 6px; margin-top: 6px; font-size: 0.85rem; }
-    .now-playing { background: #ec4899; color: white; padding: 8px 12px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { background-color: #0f172a; color: #f8fafc; padding: 16px; padding-bottom: 90px; }
+
+    /* Top Header */
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .brand { font-size: 1.2rem; font-weight: 800; color: #f43f5e; }
+    .room-tag { background: #334155; padding: 4px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 700; color: #38bdf8; }
+
+    /* Identity Input */
+    .user-input { margin-bottom: 16px; }
+    .user-input input { width: 100%; padding: 10px 14px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; color: #fff; font-size: 0.9rem; }
+
+    /* Search Box */
+    .search-box { display: flex; gap: 8px; margin-bottom: 20px; }
+    .search-box input { flex: 1; padding: 12px; background: #1e293b; border: 1px solid #334155; border-radius: 10px; color: #fff; font-size: 1rem; }
+    .search-box button { background: #f43f5e; color: #fff; border: none; padding: 0 18px; border-radius: 10px; font-weight: 700; cursor: pointer; }
+
+    /* Navigation Tabs */
+    .nav-tabs { display: flex; gap: 8px; border-bottom: 1px solid #334155; margin-bottom: 16px; }
+    .tab-btn { flex: 1; padding: 10px; background: none; border: none; color: #94a3b8; font-weight: 700; font-size: 0.9rem; border-bottom: 2px solid transparent; cursor: pointer; }
+    .tab-btn.active { color: #f43f5e; border-bottom-color: #f43f5e; }
+
+    /* Section Views */
+    .view-section { display: none; }
+    .view-section.active { display: block; }
+
+    /* List Items */
+    .item-card { background: #1e293b; border-radius: 10px; padding: 12px; margin-bottom: 10px; display: flex; gap: 12px; align-items: center; }
+    .item-card img { width: 60px; height: 45px; border-radius: 6px; object-fit: cover; }
+    .item-info { flex: 1; overflow: hidden; }
+    .item-title { font-size: 0.9rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item-sub { font-size: 0.75rem; color: #94a3b8; margin-top: 2px; }
+    .btn-add { background: #10b981; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 700; font-size: 0.8rem; cursor: pointer; }
+    .btn-danger { background: #ef4444; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; }
+
+    /* Quick Action Controls */
+    .sound-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+    .sound-btn { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; padding: 12px 8px; border-radius: 8px; font-weight: 700; font-size: 0.8rem; cursor: pointer; text-align: center; }
+    .sound-btn:active { background: #334155; }
+
+    /* Emoji Bar */
+    .emoji-section { background: #1e293b; border-radius: 12px; padding: 12px; margin-bottom: 20px; text-align: center; }
+    .emoji-label { font-size: 0.75rem; color: #94a3b8; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; }
+    .emoji-bar { display: flex; justify-content: space-around; }
+    .emoji-btn { font-size: 1.6rem; background: #0f172a; border: 1px solid #334155; width: 48px; height: 48px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+    .emoji-btn:active { transform: scale(0.9); }
+
+    /* Sticky Playback Bottom Bar */
+    .playback-bar { position: fixed; bottom: 0; left: 0; width: 100%; background: #090d16; border-top: 1px solid #334155; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; z-index: 100; }
+    .btn-skip { background: #3b82f6; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 800; font-size: 0.85rem; cursor: pointer; }
   </style>
 </head>
 <body>
 
-  <h2>🎤 SingRoom Remote</h2>
-  <div id="roomTag" class="room-badge">Connected to: Unknown Room</div>
-
-  <div class="user-box">
-    <span>Singer Name: <strong id="nameDisplay">Guest</strong></span>
-    <button onclick="changeName()" style="padding:4px 8px; font-size:0.75rem; background:#334155; color:white;">Change</button>
+  <div class="header">
+    <div class="brand">🎙️ Mars KTV</div>
+    <div id="roomDisplay" class="room-tag">ROOM-----</div>
   </div>
 
-  <div class="search-box">
-    <input type="text" id="searchInput" placeholder="Search song or artist..." onkeypress="if(event.key==='Enter') searchSong()">
-    <button class="btn-search" onclick="searchSong()">Search</button>
+  <div class="user-input">
+    <input type="text" id="userName" placeholder="Your Name (e.g. Alex)" maxlength="15">
   </div>
 
-  <div id="results" class="results-list"></div>
-
-  <div class="soundboard">
-    <button class="btn-sound" onclick="sendSound('applause')">👏</button>
-    <button class="btn-sound" onclick="sendSound('airhorn')">📢</button>
-    <button class="btn-sound" onclick="sendSound('cheer')">🎉</button>
-  </div>
-
-  <div class="vol-box">
-    <label>🔊 TV Volume: <span id="volLabel">100%</span></label>
-    <input type="range" min="0" max="100" value="100" oninput="changeVolume(this.value)">
-  </div>
-
-  <button class="btn-skip" onclick="skipSong()">⏭ Skip Current Song</button>
-
-  <div class="tab-bar">
-    <button id="tabQueueBtn" class="tab-btn active" onclick="switchTab('queue')">📋 Queue</button>
-    <button id="tabFavBtn" class="tab-btn" onclick="switchTab('favs')">⭐ Quick Add / History</button>
-  </div>
-
-  <div id="queueSection" class="queue-box">
-    <div style="font-size:0.75rem; color:#ec4899; font-weight:800; margin-bottom:4px;">NOW PLAYING</div>
-    <div id="nowPlaying" class="now-playing">Nothing playing</div>
-
-    <div style="font-size:0.75rem; color:#06b6d4; font-weight:800; margin:12px 0 4px 0;">UP NEXT</div>
-    <div id="remoteQueue"></div>
-  </div>
-
-  <div id="favsSection" class="queue-box" style="display: none;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-      <div style="font-size:0.75rem; color:#06b6d4; font-weight:800;">RECENTLY QUEUED</div>
-      <button onclick="clearHistory()" style="padding:2px 6px; font-size:0.7rem; background:#ef4444; color:white;">Clear</button>
+  <!-- Emoji Reactions Bar -->
+  <div class="emoji-section">
+    <div class="emoji-label">Send Reaction to TV</div>
+    <div class="emoji-bar">
+      <button class="emoji-btn" onclick="sendReaction('👏')">👏</button>
+      <button class="emoji-btn" onclick="sendReaction('🎉')">🎉</button>
+      <button class="emoji-btn" onclick="sendReaction('❤️')">❤️</button>
+      <button class="emoji-btn" onclick="sendReaction('🎤')">🎤</button>
+      <button class="emoji-btn" onclick="sendReaction('🔥')">🔥</button>
     </div>
-    <div id="historyList" class="history-list"></div>
   </div>
 
-  <script>
-    const socket = io();
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="switchTab('search')">Search Songs</button>
+    <button class="tab-btn" onclick="switchTab('queue')">Queue (<span id="queueCount">0</span>)</button>
+    <button class="tab-btn" onclick="switchTab('fx')">SFX Board</button>
+  </div>
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const roomCode = urlParams.get('room') || prompt("Enter Room Code:");
-    
-    document.getElementById('roomTag').textContent = `Connected to: ${roomCode}`;
-    socket.emit('joinRoom', roomCode);
+  <!-- Search Tab -->
+  <div id="searchView" class="view-section active">
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="Search song or artist...">
+      <button onclick="performSearch()">Search</button>
+    </div>
+    <div id="searchResults"></div>
+  </div>
 
-    let userName = localStorage.getItem('ktv_user') || 'Singer ' + Math.floor(Math.random() * 900 + 100);
-    document.getElementById('nameDisplay').textContent = userName;
-    let songHistory = JSON.parse(localStorage.getItem('ktv_history') || '[]');
+  <!-- Queue Tab -->
+  <div id="queueView" class="view-section">
+    <div id="queueList"></div>
+  </div>
 
-    function changeName() {
-      const name = prompt("Enter your name:", userName);
-      if (name) {
-        userName = name;
-        localStorage.setItem('ktv_user', name);
-        document.getElementById('nameDisplay').textContent = userName;
-      }
+  <!-- Sound Effects Tab -->
+  <div id="fxView" class="view-section">
+    <div class="sound-grid">
+      <button class="sound-btn" onclick="playSound('applause')">👏 Applause</button>
+      <button class="sound-btn" onclick="playSound('cheer')">🙌 Cheering</button>
+      <button class="sound-btn" onclick="playSound('laughter')">😂 Laugh</button>
+      <button class="sound-btn" onclick="playSound('airhorn')">📢 Airhorn</button>
+
+      <button class="sound-btn" onclick="playSound('drumroll')">🥁 Drumroll</button>
+      <button class="sound-btn" onclick="playSound('boo')">👎 Boo</button>
+    </div>
+  </div>
+
+  <!-- Fixed Bottom Bar -->
+  <div class="playback-bar">
+    <div>
+      <div style="font-size: 0.7rem; color: #94a3b8; font-weight: 700;">NOW PLAYING</div>
+      <div id="nowPlayingText" style="font-size: 0.85rem; font-weight: 700; color: #fff; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">No songs in queue</div>
+    </div>
+    <button class="btn-skip" onclick="skipSong()">Next ⏭️</button>
+  </div>
+
+<script>
+  const socket = io();
+  const urlParams = new URLSearchParams(window.location.search);
+  const roomCode = urlParams.get('room') || 'ROOM-1000';
+
+  document.getElementById('roomDisplay').textContent = roomCode;
+  socket.emit('joinRoom', roomCode);
+
+  // Tab Navigation
+  function switchTab(tabName) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.view-section').forEach(view => view.classList.remove('active'));
+
+    if (tabName === 'search') {
+      document.querySelectorAll('.tab-btn')[0].classList.add('active');
+      document.getElementById('searchView').classList.add('active');
+    } else if (tabName === 'queue') {
+      document.querySelectorAll('.tab-btn')[1].classList.add('active');
+      document.getElementById('queueView').classList.add('active');
+    } else if (tabName === 'fx') {
+      document.querySelectorAll('.tab-btn')[2].classList.add('active');
+      document.getElementById('fxView').classList.add('active');
+    }
+  }
+
+  // Search Logic
+  function performSearch() {
+    const query = document.getElementById('searchInput').value.trim();
+    if (!query) return;
+    document.getElementById('searchResults').innerHTML = '<div style="color:#94a3b8; text-align:center; padding:20px;">Searching YouTube...</div>';
+    socket.emit('searchSong', query);
+  }
+
+  document.getElementById('searchInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') performSearch();
+  });
+
+  socket.on('searchResults', (results) => {
+    const resultsContainer = document.getElementById('searchResults');
+    resultsContainer.innerHTML = '';
+
+    if (results.length === 0) {
+      resultsContainer.innerHTML = '<div style="color:#94a3b8; text-align:center; padding:20px;">No results found.</div>';
+      return;
     }
 
-    function switchTab(tab) {
-      if (tab === 'queue') {
-        document.getElementById('queueSection').style.display = 'block';
-        document.getElementById('favsSection').style.display = 'none';
-        document.getElementById('tabQueueBtn').classList.add('active');
-        document.getElementById('tabFavBtn').classList.remove('active');
-      } else {
-        document.getElementById('queueSection').style.display = 'none';
-        document.getElementById('favsSection').style.display = 'block';
-        document.getElementById('tabQueueBtn').classList.remove('active');
-        document.getElementById('tabFavBtn').classList.add('active');
-        renderHistory();
-      }
-    }
-
-    function saveToHistory(item) {
-      songHistory = songHistory.filter(s => s.id !== item.id);
-      songHistory.unshift(item);
-      if (songHistory.length > 15) songHistory.pop();
-      localStorage.setItem('ktv_history', JSON.stringify(songHistory));
-    }
-
-    function renderHistory() {
-      const list = document.getElementById('historyList');
-      list.innerHTML = '';
-      if (songHistory.length === 0) {
-        list.innerHTML = '<div style="font-size:0.8rem; color:#64748b;">No recent songs yet.</div>';
-        return;
-      }
-      songHistory.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'history-item';
-        div.innerHTML = `
-          <img src="${item.thumbnail}">
-          <div class="title">${item.title}</div>
-          <button style="padding:4px 8px; font-size:0.75rem; background:#22c55e; color:white;">+ Add</button>
-        `;
-        div.onclick = () => {
-          socket.emit('addSong', { input: item.id, userName: userName });
-          switchTab('queue');
-        };
-        list.appendChild(div);
-      });
-    }
-
-    function clearHistory() {
-      songHistory = [];
-      localStorage.removeItem('ktv_history');
-      renderHistory();
-    }
-
-    function searchSong() {
-      const query = document.getElementById('searchInput').value;
-      if (query.trim()) {
-        document.getElementById('results').innerHTML = '<div style="font-size:0.8rem; color:#94a3b8;">Searching YouTube...</div>';
-        socket.emit('searchSong', query);
-      }
-    }
-
-    function sendSound(sound) { socket.emit('playSound', sound); }
-    function changeVolume(val) {
-      document.getElementById('volLabel').textContent = `${val}%`;
-      socket.emit('setVolume', val);
-    }
-
-    socket.on('searchResults', (results) => {
-      const resultsDiv = document.getElementById('results');
-      resultsDiv.innerHTML = '';
-      if (!results || results.length === 0) {
-        resultsDiv.innerHTML = '<div style="font-size:0.8rem; color:#ef4444;">No songs found.</div>';
-        return;
-      }
-
-      results.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'result-item';
-        div.innerHTML = `
-          <img src="${item.thumbnail}">
-          <div class="title">${item.title}</div>
-        `;
-        div.onclick = () => {
-          socket.emit('addSong', { input: item.id, userName: userName });
-          saveToHistory(item);
-          resultsDiv.innerHTML = '<div style="font-size:0.8rem; color:#22c55e;">✓ Added to queue & history!</div>';
-          document.getElementById('searchInput').value = '';
-          setTimeout(() => { resultsDiv.innerHTML = ''; }, 2000);
-        };
-        resultsDiv.appendChild(div);
-      });
+    results.forEach(video => {
+      const card = document.createElement('div');
+      card.className = 'item-card';
+      card.innerHTML = `
+        <img src="${video.thumbnail}" alt="thumb">
+        <div class="item-info">
+          <div class="item-title">${video.title}</div>
+        </div>
+        <button class="btn-add" onclick="addSong('${video.id}')">+ Add</button>
+      `;
+      resultsContainer.appendChild(card);
     });
+  });
 
-    function skipSong() { socket.emit('nextSong'); }
-    function removeSong(index) { socket.emit('removeSong', index); }
-    function moveSong(fromIndex, toIndex) { socket.emit('reorderQueue', { fromIndex, toIndex }); }
+  function addSong(videoId) {
+    const userName = document.getElementById('userName').value.trim() || 'Guest';
+    socket.emit('addSong', { input: videoId, userName: userName });
+  }
 
-    socket.on('updateQueue', (queue) => {
-      const nowPlayingDiv = document.getElementById('nowPlaying');
-      const queueDiv = document.getElementById('remoteQueue');
+  // Handle Queue State Updates
+  socket.on('updateQueue', (queue) => {
+    document.getElementById('queueCount').textContent = queue.length;
+    const queueList = document.getElementById('queueList');
+    queueList.innerHTML = '';
 
-      if (queue.length > 0) {
-        nowPlayingDiv.textContent = `${queue[0].title} (${queue[0].user})`;
-      } else {
-        nowPlayingDiv.textContent = "Nothing playing";
-      }
+    if (queue.length === 0) {
+      document.getElementById('nowPlayingText').textContent = 'No songs in queue';
+      queueList.innerHTML = '<div style="color:#94a3b8; text-align:center; padding:20px;">Queue is currently empty.</div>';
+      return;
+    }
 
-      queueDiv.innerHTML = '';
-      queue.slice(1).forEach((song, i) => {
-        const actualIndex = i + 1;
-        const item = document.createElement('div');
-        item.className = 'song-item';
-        item.style.display = 'flex';
-        item.style.justifyContent = 'space-between';
-        item.style.alignItems = 'center';
-        
-        item.innerHTML = `
-          <div style="flex: 1; margin-right: 8px;">
-            <strong>${actualIndex}.</strong> ${song.title} <span style="opacity: 0.7; font-size: 0.75rem;">[${song.user}]</span>
-          </div>
-          <div style="display: flex; gap: 4px;">
-            ${actualIndex > 1 ? `<button onclick="moveSong(${actualIndex}, ${actualIndex - 1})" style="padding: 4px 8px; font-size: 0.75rem; background: #334155; color: white;">▲</button>` : ''}
-            ${actualIndex < queue.length - 1 ? `<button onclick="moveSong(${actualIndex}, ${actualIndex + 1})" style="padding: 4px 8px; font-size: 0.75rem; background: #334155; color: white;">▼</button>` : ''}
-            <button onclick="removeSong(${actualIndex})" style="padding: 4px 8px; font-size: 0.75rem; background: #ef4444; color: white;">✕</button>
-          </div>
-        `;
-        queueDiv.appendChild(item);
-      });
+    document.getElementById('nowPlayingText').textContent = queue[0].title;
+
+    queue.forEach((song, index) => {
+      const card = document.createElement('div');
+      card.className = 'item-card';
+      card.innerHTML = `
+        <div style="font-weight:800; color:${index === 0 ? '#10b981' : '#f43f5e'}; font-size:0.9rem;">
+          ${index === 0 ? '▶' : '#' + (index + 1)}
+        </div>
+        <div class="item-info">
+          <div class="item-title">${song.title}</div>
+          <div class="item-sub">Requested by: ${song.user}</div>
+        </div>
+        ${index > 0 ? `<button class="btn-danger" onclick="removeSong(${index})">✕</button>` : ''}
+      `;
+      queueList.appendChild(card);
     });
-  </script>
+  });
+
+  function skipSong() {
+    socket.emit('nextSong');
+  }
+
+  function removeSong(index) {
+    socket.emit('removeSong', index);
+  }
+
+  function playSound(soundName) {
+    socket.emit('playSound', soundName);
+  }
+
+  function sendReaction(emoji) {
+    socket.emit('sendEmoji', emoji);
+  }
+</script>
 </body>
 </html>
